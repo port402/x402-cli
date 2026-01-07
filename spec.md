@@ -15,13 +15,44 @@ x402-cli provides utilities to test and debug x402 payment-gated API endpoints. 
 
 ## x402 Protocol Reference
 
+The CLI supports both x402 **v1** and **v2** protocols with automatic detection.
+
+### Version Detection
+
+| Check | v1 | v2 |
+|-------|----|----|
+| 402 response | Payment info in **body** | `PAYMENT-REQUIRED` **header** |
+| Version field | `x402Version: 1` | `x402Version: 2` |
+
 ### HTTP Headers
+
+**v2 Headers (current standard):**
 
 | Header | Direction | Description |
 |--------|-----------|-------------|
 | `PAYMENT-REQUIRED` | Server → Client | Base64-encoded `PaymentRequired` JSON |
 | `PAYMENT-SIGNATURE` | Client → Server | Base64-encoded `PaymentPayload` JSON |
 | `PAYMENT-RESPONSE` | Server → Client | Base64-encoded `SettlementResponse` JSON |
+
+**v1 Headers (legacy):**
+
+| Header | Direction | Description |
+|--------|-----------|-------------|
+| *(body)* | Server → Client | JSON `PaymentRequirementsResponse` in 402 body |
+| `X-PAYMENT` | Client → Server | Base64-encoded `PaymentPayload` JSON |
+| `X-PAYMENT-RESPONSE` | Server → Client | Base64-encoded `SettlementResponse` JSON |
+
+### Auto-Detection Logic
+
+```
+1. Send initial request
+2. Receive 402 response
+3. Check for PAYMENT-REQUIRED header:
+   - Present → use v2 flow
+   - Absent → parse body as JSON, use v1 flow
+4. Send payment with appropriate header (PAYMENT-SIGNATURE or X-PAYMENT)
+5. Parse response with appropriate header (PAYMENT-RESPONSE or X-PAYMENT-RESPONSE)
+```
 
 ### PAYMENT-REQUIRED Payload (402 Response)
 
@@ -266,13 +297,14 @@ Execute full payment flow test against an x402-enabled API.
 
 **Verbose Mode (`--verbose`):**
 Outputs to stderr:
+- Detected protocol version (v1 or v2)
 - Full HTTP request/response headers (both directions)
-- Decoded `PAYMENT-REQUIRED` JSON (pretty-printed)
+- Decoded payment requirements JSON (pretty-printed)
 - Payment option selection
 - EIP-712 typed data being signed
 - Generated signature
-- Retry request with `PAYMENT-SIGNATURE`
-- Decoded `PAYMENT-RESPONSE` JSON
+- Retry request with payment header
+- Decoded settlement response JSON
 
 **Success Output:**
 - Payment summary: tx hash, amount (human readable + atomic units), network
