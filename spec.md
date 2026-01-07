@@ -4,7 +4,217 @@ A command-line tool for testing x402-enabled APIs, written in Go.
 
 ## Overview
 
-x402-cli provides utilities to test and debug x402 payment-gated API endpoints. It handles the complete payment flow including health checks, payment negotiation, transaction execution, and response verification.
+x402-cli provides utilities to test and debug x402 payment-gated API endpoints. It handles the complete payment flow including health checks, payment negotiation, EIP-3009 signature generation, and response verification.
+
+**Key Insight:** The x402 protocol uses **gasless payments** via EIP-3009 `TransferWithAuthorization`. The client only signs an off-chain authorization message—the facilitator (Coinbase's service) executes the actual blockchain transaction. This means:
+- No gas fees for the client
+- No ERC20 approval transactions needed
+- No waiting for on-chain confirmations
+
+---
+
+## x402 Protocol Reference
+
+### HTTP Headers
+
+| Header | Direction | Description |
+|--------|-----------|-------------|
+| `PAYMENT-REQUIRED` | Server → Client | Base64-encoded `PaymentRequired` JSON |
+| `PAYMENT-SIGNATURE` | Client → Server | Base64-encoded `PaymentPayload` JSON |
+| `PAYMENT-RESPONSE` | Server → Client | Base64-encoded `SettlementResponse` JSON |
+
+### PAYMENT-REQUIRED Payload (402 Response)
+
+```json
+{
+  "x402Version": 2,
+  "error": "Payment required to access this resource",
+  "resource": {
+    "url": "/api/endpoint",
+    "description": "Premium API access",
+    "mimeType": "application/json"
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:8453",
+      "amount": "1000000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "payTo": "0x...",
+      "maxTimeoutSeconds": 300,
+      "extra": {}
+    }
+  ],
+  "extensions": {}
+}
+```
+
+### PAYMENT-SIGNATURE Payload (Client Retry)
+
+```json
+{
+  "x402Version": 2,
+  "scheme": "exact",
+  "network": "eip155:8453",
+  "payload": {
+    "signature": "0x...",
+    "from": "0x...",
+    "to": "0x...",
+    "value": "1000000",
+    "validAfter": 0,
+    "validBefore": 1704067200,
+    "nonce": "0x..."
+  }
+}
+```
+
+### PAYMENT-RESPONSE Payload (Success)
+
+```json
+{
+  "success": true,
+  "transaction": "0x...",
+  "network": "eip155:8453",
+  "payer": "0x..."
+}
+```
+
+### Network Identifiers (CAIP-2 Format)
+
+| Network | Identifier |
+|---------|------------|
+| Base Mainnet | `eip155:8453` |
+| Base Sepolia | `eip155:84532` |
+| Ethereum Mainnet | `eip155:1` |
+| Solana Mainnet | `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` |
+
+### EIP-3009 TransferWithAuthorization
+
+The "exact" scheme uses EIP-3009 for gasless token transfers. The client signs an EIP-712 typed message authorizing the facilitator to transfer tokens on their behalf:
+
+```
+TransferWithAuthorization(
+  from: address,      // Payer wallet
+  to: address,        // Payment recipient
+  value: uint256,     // Amount in atomic units
+  validAfter: uint256,  // Unix timestamp (0 = immediate)
+  validBefore: uint256, // Unix timestamp (expiration)
+  nonce: bytes32      // Random value for replay prevention
+)
+```
+
+See: [x402 Protocol Specification](https://github.com/coinbase/x402) | [Coinbase x402 Docs](https://docs.cdp.coinbase.com/x402/welcome)
+
+---
+
+## Payment Flow Diagram
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        x402 test <url> --wallet ...                       │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. INITIALIZATION                                                         │
+│    • Load private key (flag/env/keystore/stdin)                          │
+│    • Validate key format, derive address                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2. INITIAL REQUEST                                                        │
+│    GET/POST https://api.example.com/endpoint                             │
+│    Content-Type: application/json                                         │
+│    Body: {"input": "..."}                                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                         ┌───────────┴───────────┐
+                         ▼                       ▼
+                   ┌──────────┐            ┌──────────┐
+                   │   200    │            │   402    │
+                   │ Success  │            │ Payment  │
+                   └──────────┘            │ Required │
+                         │                 └──────────┘
+                         ▼                       │
+                ┌─────────────────┐              │
+                │ ⚠ WARN: No      │              │
+                │ payment needed  │              │
+                │ Show response   │              │
+                │ Exit 0          │              │
+                └─────────────────┘              │
+                                                 ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3. PARSE PAYMENT-REQUIRED HEADER                                          │
+│    • Decode base64 → JSON                                                 │
+│    • Extract accepts[] array with payment options                        │
+│    • Validate x402Version == 2                                           │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+                       ┌─────────────────────────┐
+                       │ Multiple payment        │
+                       │ options in accepts[]?   │
+                       └─────────────────────────┘
+                          │              │
+                         Yes             No
+                          │              │
+                          ▼              │
+                 ┌─────────────────┐     │
+                 │ Prompt user to  │     │
+                 │ select option   │     │
+                 └─────────────────┘     │
+                          │              │
+                          └──────┬───────┘
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 4. SIGN EIP-3009 AUTHORIZATION (off-chain, no gas)                        │
+│    • Generate random 32-byte nonce                                        │
+│    • Set validAfter = 0 (immediate)                                       │
+│    • Set validBefore = now + maxTimeoutSeconds                           │
+│    • Construct EIP-712 typed data message                                │
+│    • Sign with wallet private key                                         │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 5. RETRY WITH PAYMENT-SIGNATURE HEADER                                    │
+│    GET/POST https://api.example.com/endpoint                             │
+│    PAYMENT-SIGNATURE: <base64 PaymentPayload>                            │
+│    Content-Type: application/json                                         │
+│    Body: {"input": "..."}                                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 6. SERVER-SIDE (transparent to CLI)                                       │
+│    • Server calls facilitator POST /verify                               │
+│    • Facilitator validates signature                                      │
+│    • Server calls facilitator POST /settle                               │
+│    • Facilitator executes on-chain tx, waits for confirmation            │
+│    • Server returns resource with PAYMENT-RESPONSE header                │
+└──────────────────────────────────────────────────────────────────────────┘
+                                     │
+                         ┌───────────┴───────────┐
+                         ▼                       ▼
+                   ┌──────────┐            ┌──────────┐
+                   │   200    │            │   402    │
+                   │ Success  │            │  Again   │
+                   └──────────┘            └──────────┘
+                         │                       │
+                         ▼                       ▼
+┌─────────────────────────────────┐  ┌────────────────────────────────────┐
+│ 7a. SUCCESS OUTPUT              │  │ 7b. PAYMENT REJECTED               │
+│ Parse PAYMENT-RESPONSE header   │  │ Parse error from response          │
+│ • Transaction hash              │  │ • Show errorReason                 │
+│ • Amount paid (human + raw)     │  │ • Suggest checking wallet balance  │
+│ • Network                       │  │ Exit 1                             │
+│ • Response body                 │  └────────────────────────────────────┘
+│ Exit 0                          │
+└─────────────────────────────────┘
+```
+
+---
 
 ## Commands
 
@@ -14,17 +224,16 @@ Health check for x402-enabled endpoints with full discovery.
 
 **Behavior:**
 - HTTP connectivity check (status code, response time)
-- Parse 402 response if returned (payment requirements, accepted tokens, facilitator)
+- Parse 402 response if returned (decode `PAYMENT-REQUIRED` header)
 - Check `/.well-known/x402` discovery endpoint if available
-- Validate facilitator contract reachability
+- Validate facilitator reachability (GET /supported)
 - Warn if endpoint returns 200 (no payment required)
 
 **Output:**
 - Status code and latency
-- Agent metadata (from x402 headers)
-- Payment requirements (if 402)
+- Payment requirements (if 402): scheme, network, amount, asset, payTo
+- Supported networks/schemes from facilitator
 - Discovery endpoint data (if available)
-- Facilitator status
 
 ---
 
@@ -39,48 +248,43 @@ Execute full payment flow test against an x402-enabled API.
 | `--keystore <file>` | Path to Web3 Secret Storage keystore file | Yes* |
 | `--data <json>` | Request body JSON | No |
 | `--method <method>` | HTTP method (GET/POST), auto-POST if --data provided | No |
-| `--rpc-url <url>` | RPC endpoint URL | No** |
-| `--facilitator <addr>` | Override facilitator address from 402 response | No |
 | `--timeout <seconds>` | Operation timeout (default: 120) | No |
-| `--auto-approve` | Skip ERC20 approval prompt | No |
 | `--verbose` | Show detailed payment negotiation | No |
 | `--json` | Machine-readable JSON output | No |
 
 \* One of `--wallet`, `--keystore`, or stdin required
-\** Uses `ETH_RPC_URL` env var if not provided
 
 **Payment Flow:**
 1. Send initial HTTP request to endpoint
-2. Receive 402 response with payment requirements
-3. If multiple payment options, prompt user to select (unless only one matches)
-4. Check ERC20 allowance for facilitator
-5. If approval needed, prompt user (unless `--auto-approve`)
-6. Execute payment transaction via facilitator contract
-7. Wait for 2 block confirmations
-8. Retry original request with payment proof header (per x402 spec)
-9. Return response
+2. Receive 402 response with `PAYMENT-REQUIRED` header
+3. Decode base64 JSON, extract payment options from `accepts[]`
+4. If multiple options, prompt user to select
+5. Sign EIP-3009 `TransferWithAuthorization` message (off-chain, no gas)
+6. Retry request with `PAYMENT-SIGNATURE` header
+7. Parse `PAYMENT-RESPONSE` header from success response
+8. Display results
 
 **Verbose Mode (`--verbose`):**
 Outputs to stderr:
 - Full HTTP request/response headers (both directions)
-- 402 payment requirements parsed
+- Decoded `PAYMENT-REQUIRED` JSON (pretty-printed)
 - Payment option selection
-- ERC20 approval transaction (if applicable)
-- Payment transaction details
-- Token exchange details (human readable + raw units)
-- Confirmation wait status
-- Retry request with proof
+- EIP-712 typed data being signed
+- Generated signature
+- Retry request with `PAYMENT-SIGNATURE`
+- Decoded `PAYMENT-RESPONSE` JSON
 
 **Success Output:**
-- Payment summary (tx hash, amount in both formats, gas used)
+- Payment summary: tx hash, amount (human readable + atomic units), network
 - Response status and latency
 - Response body
 
 **Error Scenarios:**
 - Non-402 initial response: Warn and show response
-- Insufficient balance: Transaction fails with decoded revert reason
-- Double 402 after proof: Error with tx hash, suggest checking facilitator for refund
-- Transaction reverts: Best-effort decode of revert reason, fall back to raw data
+- Invalid signature: Show facilitator error reason
+- Insufficient balance: `insufficient_funds` error from facilitator
+- Expired authorization: `invalid_exact_evm_payload_authorization_valid_before` error
+- Double 402 after signature: Show error reason from response
 
 ---
 
@@ -127,7 +331,6 @@ Display version and check for updates.
 
 | Variable | Description |
 |----------|-------------|
-| `ETH_RPC_URL` | Default RPC endpoint URL |
 | `PRIVATE_KEY` | Default wallet private key |
 
 Flags always override environment variables.
@@ -140,7 +343,7 @@ Flags always override environment variables.
 4. **Stdin:** Pipe private key via stdin
 
 **Security:**
-- Early validation of key format before network calls
+- Early validation of key format before any operations
 - Derive and display address for user confirmation
 - Warning displayed when reading key from interactive TTY via stdin
 
@@ -148,39 +351,24 @@ Flags always override environment variables.
 
 ## Multi-Chain Support
 
-The CLI supports any EVM-compatible chain via RPC URL configuration.
+The CLI supports any network specified in the 402 response using CAIP-2 identifiers.
 
 **Network Detection:**
-- Chain ID detected from RPC endpoint
-- Facilitator address from 402 response (or `--facilitator` override)
-- No hardcoded network assumptions
+- Network identifier from `accepts[].network` field (e.g., `eip155:8453`)
+- No RPC URL needed—client only signs messages (no on-chain interaction)
+- Facilitator handles all blockchain communication
+
+**Supported Networks:** Any network the facilitator supports. Query facilitator's `GET /supported` endpoint.
 
 ---
 
 ## Token Support
 
-**Primary:** USDC
+**Primary:** USDC (identified by contract address in `accepts[].asset`)
 
-**ERC20 Approval Flow:**
-1. Check current allowance for facilitator address
-2. If insufficient, prompt: `Approval needed for X.XX USDC. Proceed? [y/N]`
-3. Send approval for exact payment amount
-4. Wait for confirmation
-5. Proceed with payment
+**No Approval Needed:** EIP-3009 `TransferWithAuthorization` is a gasless mechanism that doesn't require prior ERC20 approval. The client signs an authorization, and the facilitator calls the token contract's `transferWithAuthorization` function.
 
-Use `--auto-approve` to skip interactive prompt.
-
----
-
-## Transaction Handling
-
-**Gas:** Automatic estimation via `eth_estimateGas` and current gas price
-
-**Nonce:** Auto-detect pending transaction count, queue behind any pending transactions
-
-**Confirmations:** Wait for 2 block confirmations before retry with proof
-
-**Amount Display:** Both human-readable (e.g., `0.001 USDC`) and raw atomic units
+**Amount Display:** Both human-readable (e.g., `1.00 USDC`) and raw atomic units (e.g., `1000000`)
 
 ---
 
@@ -214,8 +402,49 @@ When stdout is a TTY:
 ### Framework & Libraries
 
 - **CLI Framework:** Cobra
-- **Ethereum:** go-ethereum (ethclient)
+- **Ethereum Signing:** go-ethereum/crypto (for EIP-712 signing)
 - **Keystore:** Web3 Secret Storage (geth-compatible)
+- **HTTP:** net/http standard library
+
+### EIP-712 Signing
+
+The CLI must implement EIP-712 typed data signing for the `TransferWithAuthorization` message:
+
+```go
+typedData := apitypes.TypedData{
+    Types: apitypes.Types{
+        "EIP712Domain": {
+            {Name: "name", Type: "string"},
+            {Name: "version", Type: "string"},
+            {Name: "chainId", Type: "uint256"},
+            {Name: "verifyingContract", Type: "address"},
+        },
+        "TransferWithAuthorization": {
+            {Name: "from", Type: "address"},
+            {Name: "to", Type: "address"},
+            {Name: "value", Type: "uint256"},
+            {Name: "validAfter", Type: "uint256"},
+            {Name: "validBefore", Type: "uint256"},
+            {Name: "nonce", Type: "bytes32"},
+        },
+    },
+    PrimaryType: "TransferWithAuthorization",
+    Domain: apitypes.TypedDataDomain{
+        Name:              "USD Coin",  // Token name
+        Version:           "2",
+        ChainId:           math.NewHexOrDecimal256(8453),
+        VerifyingContract: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    },
+    Message: map[string]interface{}{
+        "from":        walletAddress,
+        "to":          payTo,
+        "value":       amount,
+        "validAfter":  0,
+        "validBefore": validBefore,
+        "nonce":       randomNonce,
+    },
+}
+```
 
 ### Project Structure
 
@@ -228,27 +457,15 @@ x402-cli/
 │   ├── batch_health.go
 │   └── version.go
 ├── internal/
-│   ├── client/        # HTTP client with x402 handling
-│   ├── wallet/        # Key loading, signing
-│   ├── payment/       # Facilitator interaction, tx execution
+│   ├── client/        # HTTP client with x402 header handling
+│   ├── wallet/        # Key loading, EIP-712 signing
+│   ├── x402/          # PaymentRequired/PaymentPayload types
 │   ├── discovery/     # .well-known/x402 parsing
 │   └── output/        # Formatting, TTY detection
 ├── main.go
 ├── go.mod
 └── go.sum
 ```
-
----
-
-## Protocol Reference
-
-This CLI implements the x402 payment protocol. For protocol details including:
-- Payment requirement header format
-- Payment proof header format
-- Facilitator contract ABI
-- Token exchange mechanics
-
-See: [x402 Protocol Specification](https://github.com/coinbase/x402)
 
 ---
 
@@ -269,8 +486,7 @@ x402 test https://api.example.com/paid-endpoint \
   --keystore ~/.ethereum/keystore/UTC--2024... \
   --data '{"input": "test"}'
 
-# Using environment variables
-export ETH_RPC_URL=https://base-mainnet.infura.io/v3/...
+# Using environment variable
 export PRIVATE_KEY=0xabc123...
 x402 test https://api.example.com/paid-endpoint
 
@@ -299,9 +515,28 @@ The CLI provides clear, actionable error messages:
 | Scenario | Message |
 |----------|---------|
 | Invalid private key | `error: invalid private key format (expected 64 hex chars or 0x-prefixed)` |
-| Missing RPC URL | `error: RPC URL required (--rpc-url or ETH_RPC_URL env var)` |
-| Insufficient balance | `error: insufficient USDC balance (have: X.XX, need: Y.YY)` |
-| Approval rejected | `error: ERC20 approval cancelled by user` |
-| Payment not recognized | `error: payment not recognized by server (tx: 0x...). Check facilitator for potential refund.` |
-| Contract revert | `error: facilitator contract reverted: <decoded reason or raw data>` |
+| No 402 response | `warning: endpoint returned 200 OK (no payment required)` |
+| Invalid x402 version | `error: unsupported x402 version (expected 2, got X)` |
+| Signature rejected | `error: payment signature rejected: <errorReason from facilitator>` |
+| Insufficient balance | `error: insufficient_funds - wallet has insufficient token balance` |
+| Authorization expired | `error: authorization expired before facilitator could settle` |
+| Network unsupported | `error: network eip155:XXXX not supported by facilitator` |
 | Timeout | `error: operation timed out after Xs` |
+| Malformed header | `error: failed to decode PAYMENT-REQUIRED header: <details>` |
+
+---
+
+## Removed Features (vs Initial Draft)
+
+The following features from the initial draft are **not needed** due to the gasless EIP-3009 architecture:
+
+| Feature | Reason Removed |
+|---------|----------------|
+| `--rpc-url` flag | Client doesn't interact with blockchain |
+| `--facilitator` flag | Facilitator URL derived from server, not user-configured |
+| `--auto-approve` flag | No ERC20 approval needed with EIP-3009 |
+| `ETH_RPC_URL` env var | No RPC needed |
+| Gas estimation | Facilitator pays gas |
+| Nonce management | No on-chain tx from client |
+| Confirmation waiting | Facilitator handles settlement |
+| ERC20 allowance checks | TransferWithAuthorization doesn't need approval |
