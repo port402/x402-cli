@@ -92,7 +92,7 @@ jobs:
           go build -ldflags="-s -w" -o x402-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/x402
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: x402-${{ matrix.goos }}-${{ matrix.goarch }}
           path: x402-${{ matrix.goos }}-${{ matrix.goarch }}
