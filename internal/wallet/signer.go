@@ -31,9 +31,9 @@ type SignParams struct {
 
 // SignResult contains the signature and authorization details.
 type SignResult struct {
-	Signature     string            // Hex-encoded signature with 0x prefix
+	Signature     string             // Hex-encoded signature with 0x prefix
 	Authorization x402.Authorization // Authorization struct for payload
-	Nonce         string            // Hex-encoded nonce with 0x prefix
+	Nonce         string             // Hex-encoded nonce with 0x prefix
 }
 
 // SignTransferAuthorization creates an EIP-712 signature for EIP-3009 TransferWithAuthorization.

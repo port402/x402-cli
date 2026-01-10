@@ -37,12 +37,12 @@ func PrintJSONError(err error, exitCode int) {
 
 // BatchHealthResult represents the result of a batch health check.
 type BatchHealthResult struct {
-	TotalURLs    int             `json:"totalUrls"`
-	Passed       int             `json:"passed"`
-	PassedWarn   int             `json:"passedWithWarnings"`
-	Failed       int             `json:"failed"`
-	Results      []HealthResult  `json:"results"`
-	Duration     int64           `json:"durationMs"`
+	TotalURLs  int            `json:"totalUrls"`
+	Passed     int            `json:"passed"`
+	PassedWarn int            `json:"passedWithWarnings"`
+	Failed     int            `json:"failed"`
+	Results    []HealthResult `json:"results"`
+	Duration   int64          `json:"durationMs"`
 }
 
 // PrintBatchHealthResult outputs batch health results.
