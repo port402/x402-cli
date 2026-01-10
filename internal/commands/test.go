@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -342,7 +343,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 		}
 
 		output.PrintTestResult(result, GetVerbose())
-		return fmt.Errorf(result.Error)
+		return errors.New(result.Error)
 	}
 
 	// Success!
