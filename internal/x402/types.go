@@ -75,10 +75,10 @@ type ExactEvmPayload struct {
 // PaymentPayloadV2 is the v2 protocol payment payload structure.
 // Sent in the PAYMENT-SIGNATURE header (base64 encoded).
 type PaymentPayloadV2 struct {
-	X402Version int              `json:"x402Version"`
-	Resource    ResourceInfo     `json:"resource"`
-	Accepted    AcceptedOption   `json:"accepted"`
-	Payload     ExactEvmPayload  `json:"payload"`
+	X402Version int             `json:"x402Version"`
+	Resource    ResourceInfo    `json:"resource"`
+	Accepted    AcceptedOption  `json:"accepted"`
+	Payload     ExactEvmPayload `json:"payload"`
 }
 
 // AcceptedOption mirrors PaymentRequirement for the accepted field.

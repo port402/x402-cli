@@ -119,12 +119,12 @@ func TestIsTestnet(t *testing.T) {
 		network  string
 		expected bool
 	}{
-		{"eip155:1", false},      // Ethereum Mainnet
-		{"eip155:8453", false},   // Base Mainnet
-		{"eip155:84532", true},   // Base Sepolia
+		{"eip155:1", false},       // Ethereum Mainnet
+		{"eip155:8453", false},    // Base Mainnet
+		{"eip155:84532", true},    // Base Sepolia
 		{"eip155:11155111", true}, // Ethereum Sepolia
-		{"eip155:137", false},    // Polygon Mainnet
-		{"eip155:999999", false}, // Unknown (defaults to false)
+		{"eip155:137", false},     // Polygon Mainnet
+		{"eip155:999999", false},  // Unknown (defaults to false)
 	}
 
 	for _, tt := range tests {
