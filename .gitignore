@@ -1,0 +1,39 @@
+# Compiled binary (at repo root only)
+/x402
+
+# Test artifacts and results
+*.test
+coverage.out
+coverage.html
+batch-health-results.*
+health-check-results.md
+
+# GoReleaser build output
+dist/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment and secrets
+.env
+.env.local
+*.pem
+*.key
+
+# POC node_modules (if any)
+poc/*/node_modules/
+
+# Temporary files
+*.tmp
+*.log
+
+# AI assistant files
+CLAUDE.md
+.claude/
+.cursorrules
+.cursor/

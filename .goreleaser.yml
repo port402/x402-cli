@@ -1,0 +1,84 @@
+version: 2
+
+project_name: x402
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: x402
+    main: ./cmd/x402
+    binary: x402
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/port402/x402-cli/internal/commands.Version={{.Version}}
+      - -X github.com/port402/x402-cli/internal/commands.Commit={{.ShortCommit}}
+      - -X github.com/port402/x402-cli/internal/commands.BuildDate={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - name: x402
+    repository:
+      owner: port402
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/port402/x402-cli"
+    description: "CLI for testing x402-enabled payment-gated APIs"
+    license: "MIT"
+    install: |
+      bin.install "x402"
+    test: |
+      system "#{bin}/x402", "version"
+
+release:
+  github:
+    owner: port402
+    name: x402-cli
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: x402 Protocol Documentation
+    url: https://docs.cdp.coinbase.com/x402/welcome
+    about: Learn about the x402 protocol and how it works
+  - name: x402 Ecosystem
+    url: https://x402.org/ecosystem
+    about: Discover x402-enabled APIs and services to test against
+  - name: Security Vulnerability
+    url: https://github.com/port402/x402-cli/security/advisories/new
+    about: Report security vulnerabilities privately (do not open a public issue)
