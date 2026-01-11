@@ -23,6 +23,7 @@
 - [Configuration](#configuration)
 - [Examples](#examples)
 - [How x402 Works](#how-x402-works)
+- [Creating a Wallet](#creating-a-wallet)
 - [Development](#development)
 - [Contributing](#contributing)
 
