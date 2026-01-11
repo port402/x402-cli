@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: "Be concise and direct. Focus on security, correctness, and Go idioms."
+early_access: false
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  collapse_walkthrough: false
+
+  path_instructions:
+    - path: "internal/wallet/**"
+      instructions: |
+        SECURITY CRITICAL - Private key and signature handling.
+
+        Key material protection:
+        - REJECT any code that logs, prints, or includes in error messages: private keys, mnemonics, raw signatures, or seed phrases
+        - REJECT fmt.Printf/log.Printf/slog calls that could output key material
+        - Error messages MUST be generic (e.g., "signing failed") not specific (e.g., "invalid key: <key>")
+
+        EIP-712 typed data:
+        - Verify EIP712Domain struct includes: name, version, chainId, verifyingContract
+        - Check that chainId matches the target network (e.g., 8453 for Base mainnet, 84532 for Base Sepolia)
+        - Verify verifyingContract matches the token contract address
+        - TypedData.PrimaryType must match the struct being signed
+
+        Signature security:
+        - Use constant-time comparison (subtle.ConstantTimeCompare) for signature verification
+        - REJECT early-return patterns in signature validation that could leak timing info
+        - Ensure ECDSA recovery returns error on invalid v value (not 27/28)
+
+        Testing requirements:
+        - Any new signing function MUST have test coverage
+        - Tests MUST NOT contain real private keys (use deterministic test keys)
+
+    - path: "internal/x402/**"
+      instructions: |
+        Protocol implementation - x402 spec compliance.
+
+        EIP-3009 Authorization struct - verify these exact fields:
+        - from: address (20 bytes, checksummed)
+        - to: address (recipient/payee)
+        - value: *big.Int (payment amount in token smallest unit)
+        - validAfter: *big.Int (unix timestamp, must be < validBefore)
+        - validBefore: *big.Int (unix timestamp, must be > current time)
+        - nonce: [32]byte (unique per authorization)
+
+        Base64 encoding/decoding:
+        - Use base64.StdEncoding for v2 Payment-Required header
+        - Verify roundtrip: decode(encode(payload)) == payload
+        - Handle padding correctly (= suffix)
+        - REJECT base64.URLEncoding unless explicitly required
+
+        Protocol version compatibility:
+        - v1: Payment info in response body JSON, X-Payment header for signature
+        - v2: Payment info in Payment-Required header (base64), Payment-Signature header
+        - Parser MUST detect version from response (check header first, fallback to body)
+        - REJECT code that assumes single protocol version
+
+        Header names (exact casing):
+        - v2: "Payment-Required", "Payment-Signature", "Payment-Response"
+        - v1: "X-Payment", "X-Payment-Response"
+
+    - path: "internal/commands/**"
+      instructions: |
+        CLI command implementation - Cobra patterns.
+
+        Context handling:
+        - All Cobra RunE functions MUST accept and propagate context.Context
+        - Use cmd.Context() to get context, pass to all downstream calls
+        - HTTP clients MUST use req.WithContext(ctx)
+        - REJECT functions that ignore context cancellation
+
+        Flag handling:
+        - Required flags MUST use cmd.MarkFlagRequired()
+        - Mutually exclusive flags MUST be validated in PreRunE
+        - Flag defaults MUST be documented in flag description
+        - REJECT global variables for flag values (use cmd.Flags().GetString())
+
+        JSON output (--json flag):
+        - Output MUST be valid JSON (parseable by jq)
+        - Use json.MarshalIndent for human-readable output
+        - Errors MUST also output JSON when --json is set: {"error": "message"}
+        - REJECT mixing JSON and plain text output in same command
+        - Test requirement: add test that parses output with json.Unmarshal
+
+        Error messages:
+        - User-facing errors MUST be actionable (what went wrong + how to fix)
+        - Include relevant context (URL, status code, token amount)
+        - REJECT errors that only say "failed" without context
+
+    - path: "**/*.go"
+      instructions: |
+        General Go code standards.
+
+        Error handling:
+        - Wrap errors with context: fmt.Errorf("operation failed: %w", err)
+        - REJECT bare "return err" without wrapping (except in main/top-level)
+        - Use errors.Is/errors.As for error checking, not string comparison
+        - REJECT error messages starting with capital letter or ending with punctuation
+
+        Concurrency:
+        - Document goroutine lifecycle in function comments: who spawns, who waits, how terminated
+        - REQUIRE sync.WaitGroup or errgroup.Group for goroutine coordination
+        - REJECT unbounded goroutine spawning (must have limiting mechanism)
+        - Channel operations MUST handle context cancellation (select with ctx.Done())
+        - REQUIRE race-detector tests for types with concurrent access: go test -race
+
+        Naming:
+        - Unexported functions: camelCase
+        - Exported functions: PascalCase with descriptive verb prefix (Get, Set, New, Parse)
+        - Interfaces: -er suffix for single-method (Reader, Writer), descriptive for multi-method
+        - REJECT single-letter variables except: i/j/k for loops, ok for map/type checks, err for errors
+
+        Testing:
+        - Table-driven tests for functions with multiple cases
+        - Test files in same package (*_test.go)
+        - Use testify/assert or testify/require for assertions
+        - REJECT t.Log for test output (use t.Errorf or assertions)
+
+  path_filters:
+    - "!vendor/**"
+    - "!**/*_generated.go"
+    - "!**/mocks/**"
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+
+chat:
+  auto_reply: true
