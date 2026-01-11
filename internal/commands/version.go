@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,13 +34,27 @@ func runVersion(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	fmt.Printf("x402 version %s\n", Version)
-	if Commit != "none" {
-		fmt.Printf("  Commit:     %s\n", Commit)
+	// Compact format: x402 0.1.0 (e0b2c4f)
+	commitShort := truncate(Commit, 7)
+	if commitShort != "none" {
+		fmt.Printf("x402 %s (%s)\n", Version, commitShort)
+	} else {
+		fmt.Printf("x402 %s\n", Version)
 	}
+
 	if BuildDate != "unknown" {
-		fmt.Printf("  Built:      %s\n", BuildDate)
+		fmt.Printf("  Built:    %s\n", truncate(BuildDate, 10))
 	}
-	fmt.Printf("  Go version: %s\n", runtime.Version())
-	fmt.Printf("  OS/Arch:    %s/%s\n", runtime.GOOS, runtime.GOARCH)
+
+	goVersion := strings.TrimPrefix(runtime.Version(), "go")
+	fmt.Printf("  Go:       %s\n", goVersion)
+	fmt.Printf("  Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+}
+
+// truncate returns at most maxLen characters from s.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }

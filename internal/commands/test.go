@@ -101,7 +101,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Step 1: Make initial request
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "Step 1: Making initial request...")
+		fmt.Fprintln(os.Stderr, "• Fetching payment requirements...")
 	}
 
 	httpClient := client.New(client.WithTimeout(timeout))
@@ -147,7 +147,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Step 2: Parse payment requirements
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "Step 2: Parsing payment requirements...")
+		fmt.Fprintln(os.Stderr, "• Parsing 402 response...")
 	}
 
 	parseResult, err := x402.ParsePaymentRequired(reqResult.Response)
@@ -219,10 +219,8 @@ func runTest(cmd *cobra.Command, args []string) error {
 	// Show payment details
 	if !GetJSONOutput() {
 		fmt.Println()
-		fmt.Println("Payment Required:")
-		fmt.Printf("  Amount:  %s\n", amountHuman)
-		fmt.Printf("  Network: %s\n", networkName)
-		fmt.Printf("  PayTo:   %s\n", tokens.FormatShortAddress(evmOption.PayTo))
+		fmt.Printf("  Payment:  %s → %s\n", amountHuman, tokens.FormatShortAddress(evmOption.PayTo))
+		fmt.Printf("  Network:  %s\n", networkName)
 		if !tokenKnown {
 			fmt.Println()
 			output.PrintWarning("Unknown token - verify amount manually before proceeding")
@@ -232,7 +230,6 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Dry run - stop here
 	if dryRun {
-		result.DryRun = true
 		if GetJSONOutput() {
 			return output.PrintJSON(result)
 		}
@@ -242,7 +239,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Load wallet
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "Step 3: Loading wallet...")
+		fmt.Fprintln(os.Stderr, "• Loading wallet...")
 	}
 
 	privateKeyLoaded, err := wallet.LoadPrivateKey(keystorePath, walletKey, !output.IsStdinTTY())
@@ -267,7 +264,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Step 4: Sign authorization
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "Step 4: Signing EIP-3009 authorization...")
+		fmt.Fprintln(os.Stderr, "• Signing EIP-3009 authorization...")
 	}
 
 	signParams := wallet.PrepareSignParams(evmOption, fromAddress, chainID)
@@ -278,7 +275,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Step 5: Build payment payload
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "Step 5: Building payment payload...")
+		fmt.Fprintln(os.Stderr, "• Building payment payload...")
 	}
 
 	resource := parseResult.PaymentRequired.Resource
@@ -302,7 +299,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Step 6: Retry with payment
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "Step 6: Retrying with payment signature...")
+		fmt.Fprintln(os.Stderr, "• Sending payment...")
 	}
 
 	// Mark that signature has been sent (for Ctrl+C warning)

@@ -71,113 +71,105 @@ type TestResult struct {
 
 // PrintHealthResult outputs the health check result in human-readable format.
 func PrintHealthResult(result *HealthResult, verbose bool) {
+	failCount, warnCount := countChecks(result.Checks)
+
+	// Status line with URL
+	if failCount > 0 {
+		fmt.Printf("✗ %s\n", result.URL)
+	} else if warnCount > 0 {
+		fmt.Printf("⚠ %s\n", result.URL)
+	} else {
+		fmt.Printf("✓ %s\n", result.URL)
+	}
+
+	// Details section
 	fmt.Println()
-	fmt.Println("x402 Health Check")
-	fmt.Println("─────────────────")
-	fmt.Printf("URL:        %s\n", result.URL)
-	if result.Method != "" {
-		fmt.Printf("Method:     %s\n", result.Method)
-	}
-
 	if result.Status > 0 {
-		fmt.Printf("Status:     %s\n", result.StatusText)
+		fmt.Printf("  Status:   %s\n", result.StatusText)
 	}
-
 	if result.Protocol != "" {
-		fmt.Printf("Protocol:   %s\n", formatProtocol(result.Protocol))
+		fmt.Printf("  Protocol: %s\n", formatProtocol(result.Protocol))
 	}
+	fmt.Printf("  Latency:  %dms\n", result.LatencyMs)
 
-	fmt.Printf("Latency:    %dms\n", result.LatencyMs)
-
-	// Payment options
+	// Payment - consolidated single line
 	if len(result.PaymentOptions) > 0 {
-		fmt.Println()
-		fmt.Println("Payment Options:")
-		for _, opt := range result.PaymentOptions {
-			supported := ""
-			if opt.Supported {
-				supported = " ✓ supported"
-			} else {
-				supported = " ✗ unsupported"
-			}
-			fmt.Printf("  [%d] %s on %s%s\n", opt.Index, opt.AmountHuman, opt.NetworkName, supported)
+		opt := result.PaymentOptions[0]
+		fmt.Printf("  Payment:  %s on %s\n", opt.AmountHuman, tokens.GetNetworkName(opt.Network))
 
-			if verbose {
-				fmt.Printf("      Scheme: %s\n", opt.Scheme)
-				fmt.Printf("      Asset:  %s\n", opt.Asset)
-				fmt.Printf("      PayTo:  %s\n", opt.PayTo)
+		// Show additional options in verbose mode
+		if verbose && len(result.PaymentOptions) > 1 {
+			for i, opt := range result.PaymentOptions[1:] {
+				fmt.Printf("            [%d] %s on %s\n", i+2, opt.AmountHuman, tokens.GetNetworkName(opt.Network))
 			}
 		}
 	}
 
 	// Checks
 	fmt.Println()
-	fmt.Println("Checks:")
+	fmt.Println("  Checks:")
 	for _, check := range result.Checks {
 		icon := statusIcon(check.Status)
-		fmt.Printf("  %s %s\n", icon, check.Name)
-		if verbose || check.Status != StatusPass {
-			fmt.Printf("    %s\n", check.Message)
+		fmt.Printf("    %s %s\n", icon, check.Name)
+		if check.Status != StatusPass {
+			fmt.Printf("      %s\n", check.Message)
 		}
 	}
 
-	// Summary
-	fmt.Println()
-	failCount, warnCount := countChecks(result.Checks)
+	// Error line for failures (no "Result:" footer)
 	if failCount > 0 {
-		fmt.Printf("Result: FAILED (%d check(s) failed)\n", failCount)
-	} else if warnCount > 0 {
-		fmt.Printf("Result: PASSED with warnings (%d warning(s))\n", warnCount)
-	} else {
-		fmt.Println("Result: PASSED")
+		fmt.Println()
+		fmt.Printf("Error: endpoint is not x402-enabled\n")
 	}
 }
 
 // PrintTestResult outputs the test payment result in human-readable format.
 func PrintTestResult(result *TestResult, verbose bool) {
-	fmt.Println()
-	if result.DryRun {
-		fmt.Println("x402 Payment Test (DRY RUN)")
+	// Status line
+	if result.Error != "" {
+		fmt.Println("✗ Payment failed")
+	} else if result.DryRun {
+		fmt.Println("• Dry run complete")
 	} else {
-		fmt.Println("x402 Payment Test")
+		fmt.Println("✓ Payment successful")
 	}
-	fmt.Println("──────────────────")
-	fmt.Printf("URL:        %s\n", result.URL)
-	fmt.Printf("Status:     %s\n", result.StatusText)
-	fmt.Printf("Protocol:   %s\n", formatProtocol(result.Protocol))
 
+	// Details section
 	fmt.Println()
-	fmt.Println("Payment:")
-	fmt.Printf("  Amount:   %s\n", result.PaymentOption.AmountHuman)
-	fmt.Printf("  Network:  %s\n", result.PaymentOption.NetworkName)
-	fmt.Printf("  Asset:    %s\n", tokens.FormatShortAddress(result.PaymentOption.Asset))
-	fmt.Printf("  PayTo:    %s\n", tokens.FormatShortAddress(result.PaymentOption.PayTo))
+	fmt.Printf("  URL:      %s\n", result.URL)
+	fmt.Printf("  Status:   %s\n", result.StatusText)
+	fmt.Printf("  Payment:  %s on %s\n", result.PaymentOption.AmountHuman, tokens.GetNetworkName(result.PaymentOption.Network))
 
+	// Transaction info (on success)
 	if result.Transaction != "" {
-		fmt.Println()
-		fmt.Println("Transaction:")
-		fmt.Printf("  Hash: %s\n", result.Transaction)
+		fmt.Printf("  TxHash:   %s\n", tokens.FormatShortAddress(result.Transaction))
 		if result.TransactionURL != "" {
+			fmt.Println()
 			fmt.Printf("  View: %s\n", result.TransactionURL)
 		}
 	}
 
-	// Show response body (the actual API response after payment)
-	if result.ResponseBody != "" && !result.DryRun {
+	// Response body
+	if result.ResponseBody != "" && !result.DryRun && result.Error == "" {
 		fmt.Println()
 		fmt.Println("Response:")
-		fmt.Println("─────────")
 		fmt.Println(result.ResponseBody)
 	}
 
+	// Dry run notice
 	if result.DryRun {
 		fmt.Println()
-		fmt.Println("(Dry run - no payment was made)")
+		fmt.Println("No payment was made (dry run)")
 	}
 
+	// Error with hint
 	if result.Error != "" {
 		fmt.Println()
-		fmt.Printf("Error: %s\n", result.Error)
+		fmt.Printf("Error: %s\n", cleanErrorMessage(result.Error))
+		// Add helpful hint for server errors
+		if strings.Contains(result.Error, "500") || strings.Contains(result.Error, "Internal Server Error") {
+			fmt.Println("Hint:  your funds were not transferred (authorization was not settled)")
+		}
 	}
 }
 
@@ -264,4 +256,26 @@ func countChecks(checks []Check) (failCount, warnCount int) {
 		}
 	}
 	return
+}
+
+// errorMessageReplacements maps status codes to clean error messages for payment failures.
+var errorMessageReplacements = map[string]string{
+	"500": "server returned 500 during payment verification",
+	"401": "payment authorization rejected (401)",
+	"403": "payment forbidden (403)",
+}
+
+// cleanErrorMessage removes redundant status code duplication from error messages.
+// e.g., "Payment failed: 500 500 Internal Server Error" -> "server returned 500 during payment verification"
+func cleanErrorMessage(msg string) string {
+	if !strings.HasPrefix(msg, "Payment failed:") {
+		return msg
+	}
+
+	for code, replacement := range errorMessageReplacements {
+		if strings.Contains(msg, code) {
+			return replacement
+		}
+	}
+	return msg
 }
