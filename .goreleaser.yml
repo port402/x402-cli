@@ -61,7 +61,7 @@ changelog:
       - Merge branch
 
 brews:
-  - name: x402
+  - name: x402-cli
     repository:
       owner: port402
       name: homebrew-tap
