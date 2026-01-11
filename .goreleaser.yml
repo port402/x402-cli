@@ -1,6 +1,6 @@
 version: 2
 
-project_name: x402
+project_name: x402-cli
 
 before:
   hooks:
