@@ -1,4 +1,4 @@
-# x402
+# x402-cli
 
 [![CI](https://github.com/port402/x402-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/port402/x402-cli/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/port402/x402-cli)](https://goreportcard.com/report/github.com/port402/x402-cli)
@@ -8,13 +8,58 @@ A command-line tool for testing x402-enabled payment-gated APIs.
 
 The x402 protocol uses HTTP 402 (Payment Required) status codes with EIP-3009 gasless token transfers to gate access to resources. This CLI helps developers test and validate x402 endpoints.
 
+## How x402 Works
+
+The x402 protocol enables payment-gated APIs using HTTP 402 responses and gasless EIP-3009 token transfers.
+
+### Payment Flow
+
+```
+┌─────────┐                    ┌─────────┐                    ┌─────────────┐
+│  Client │                    │  Server │                    │ Facilitator │
+└────┬────┘                    └────┬────┘                    └──────┬──────┘
+     │                              │                                │
+     │  1. GET /resource            │                                │
+     │ ───────────────────────────> │                                │
+     │                              │                                │
+     │  2. 402 Payment Required     │                                │
+     │     + payment requirements   │                                │
+     │ <─────────────────────────── │                                │
+     │                              │                                │
+     │  3. Sign EIP-3009 auth       │                                │
+     │     (gasless, off-chain)     │                                │
+     │                              │                                │
+     │  4. GET /resource            │                                │
+     │     + X-PAYMENT header       │                                │
+     │ ───────────────────────────> │                                │
+     │                              │                                │
+     │                              │  5. Verify & settle payment    │
+     │                              │ ──────────────────────────────>│
+     │                              │                                │
+     │                              │  6. Payment confirmed          │
+     │                              │ <──────────────────────────────│
+     │                              │                                │
+     │  7. 200 OK + resource        │                                │
+     │ <─────────────────────────── │                                │
+     │                              │                                │
+```
+
+### Key Concepts
+
+| Term | Description |
+|------|-------------|
+| **402 Response** | HTTP status indicating payment is required |
+| **EIP-3009** | Gasless token transfer standard (no ETH needed for gas) |
+| **Facilitator** | Service that verifies and settles payments on-chain |
+| **X-PAYMENT** | Header containing the signed payment authorization |
+
 ## Installation
 
 ### Homebrew (macOS/Linux)
 
 ```bash
 brew tap port402/tap
-brew install x402
+brew install x402-cli
 ```
 
 ### Go Install
