@@ -183,6 +183,27 @@ func TestPaymentOptionDisplay_Structure(t *testing.T) {
 	assert.True(t, opt.Supported)
 }
 
+func TestCleanErrorMessage(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Payment failed: 500 500 Internal Server Error", "server returned 500 during payment verification"},
+		{"Payment failed: 500 Internal Server Error", "server returned 500 during payment verification"},
+		{"Payment failed: 401 Unauthorized", "payment authorization rejected (401)"},
+		{"Payment failed: 403 Forbidden", "payment forbidden (403)"},
+		{"Some other error", "Some other error"},
+		{"Connection timeout", "Connection timeout"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := cleanErrorMessage(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 // Note: PrintHealthResult, PrintTestResult, PrintError, PrintWarning,
 // PrintInfo, PromptConfirm, and PromptSelect output to stdout/stderr
 // and require terminal interaction. These are better tested manually
