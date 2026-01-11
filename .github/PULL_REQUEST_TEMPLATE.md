@@ -1,3 +1,6 @@
+<!-- CodeRabbit will automatically review this PR within 1-2 minutes. -->
+<!-- You can interact with it by commenting: @coderabbitai summary, @coderabbitai review -->
+
 ## Summary
 
 <!-- Describe your changes in 1-3 sentences -->
