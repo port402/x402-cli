@@ -204,6 +204,24 @@ func TestCleanErrorMessage(t *testing.T) {
 	}
 }
 
+func TestFormatResponseBody(t *testing.T) {
+	// Note: formatResponseBody only pretty-prints when IsTTY() is true.
+	// In test environment, IsTTY() returns false, so we test the non-TTY path.
+
+	// Non-JSON should pass through unchanged
+	plainText := "Hello, world!"
+	assert.Equal(t, plainText, formatResponseBody(plainText))
+
+	// Invalid JSON should pass through unchanged
+	invalidJSON := "{invalid json"
+	assert.Equal(t, invalidJSON, formatResponseBody(invalidJSON))
+
+	// Valid JSON passes through unchanged when not TTY (test environment)
+	validJSON := `{"key":"value"}`
+	result := formatResponseBody(validJSON)
+	assert.Equal(t, validJSON, result)
+}
+
 // Note: PrintHealthResult, PrintTestResult, PrintError, PrintWarning,
 // PrintInfo, PromptConfirm, and PromptSelect output to stdout/stderr
 // and require terminal interaction. These are better tested manually
