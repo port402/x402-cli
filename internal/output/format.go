@@ -1,6 +1,8 @@
 package output
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -142,10 +144,9 @@ func PrintTestResult(result *TestResult, verbose bool) {
 
 	// Transaction info (on success)
 	if result.Transaction != "" {
-		fmt.Printf("  TxHash:   %s\n", tokens.FormatShortAddress(result.Transaction))
+		fmt.Printf("  TxHash:   %s\n", result.Transaction)
 		if result.TransactionURL != "" {
-			fmt.Println()
-			fmt.Printf("  View: %s\n", result.TransactionURL)
+			fmt.Printf("  View:     %s\n", result.TransactionURL)
 		}
 	}
 
@@ -153,7 +154,7 @@ func PrintTestResult(result *TestResult, verbose bool) {
 	if result.ResponseBody != "" && !result.DryRun && result.Error == "" {
 		fmt.Println()
 		fmt.Println("Response:")
-		fmt.Println(result.ResponseBody)
+		fmt.Println(formatResponseBody(result.ResponseBody))
 	}
 
 	// Dry run notice
@@ -278,4 +279,24 @@ func cleanErrorMessage(msg string) string {
 		}
 	}
 	return msg
+}
+
+// maxPrettyPrintSize is the maximum response size (in bytes) to pretty-print.
+// Larger responses are returned raw to avoid terminal lag and memory issues.
+const maxPrettyPrintSize = 50 * 1024 // 50KB
+
+// formatResponseBody pretty-prints JSON when outputting to a terminal,
+// otherwise returns the raw body for piping to other tools.
+func formatResponseBody(body string) string {
+	// Only pretty-print for TTY output and small responses
+	if !IsTTY() || len(body) > maxPrettyPrintSize {
+		return body
+	}
+
+	// json.Indent returns an error for invalid JSON, so no need to pre-validate
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, []byte(body), "", "  "); err != nil {
+		return body
+	}
+	return pretty.String()
 }
