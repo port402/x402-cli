@@ -9,6 +9,7 @@
 ## Features
 
 - **Health Check** — Validate x402 endpoints without a wallet
+- **Agent Discovery** — Discover A2A protocol agent cards
 - **Test Payments** — Execute gasless EIP-3009 payments
 - **Batch Testing** — Check multiple endpoints in parallel
 - **Keystore Support** — Works with Foundry/Geth keystores
@@ -53,6 +54,12 @@ Download pre-built binaries from the [releases page](https://github.com/port402/
 
 ```bash
 x402 health https://api.example.com/resource
+```
+
+### Discover A2A agent card
+
+```bash
+x402 agent https://api.example.com
 ```
 
 ### Make a test payment
@@ -131,6 +138,40 @@ Response (200 OK):
 }
 ```
 
+### Agent Discovery (Found)
+
+```
+$ x402 agent https://api.example.com
+
+✓ Agent card found (/.well-known/agent.json)
+
+Agent:
+  Name:        Recipe Agent
+  Version:     1.0.0
+  Description: Agent that helps with recipes
+
+Skills:
+  • recipe-search — Find recipes by ingredients
+  • meal-plan — Generate weekly meal plans
+
+Docs: https://docs.example.com/agent
+```
+
+### Agent Discovery (Not Found)
+
+```
+$ x402 agent https://example.com
+
+⚠ No agent card found
+
+Tried:
+  • /.well-known/agent.json (404)
+  • /.well-known/agent-card.json (404)
+  • /.well-known/agents.json (404)
+
+Hint: Use --card-url to specify a custom location
+```
+
 ## Commands
 
 ### `x402 health <url>`
@@ -142,6 +183,26 @@ x402 health https://api.example.com/endpoint
 x402 health https://api.example.com/endpoint --json          # JSON output
 x402 health https://api.example.com/endpoint --method POST   # POST-only APIs
 ```
+
+### `x402 agent <url>`
+
+Discover A2A (Agent-to-Agent) protocol agent cards from endpoints.
+
+```bash
+x402 agent https://api.example.com                           # Auto-discover
+x402 agent https://api.example.com --json                    # JSON output
+x402 agent https://api.example.com --card-url /custom/agent.json  # Custom path
+```
+
+| Flag | Description |
+|------|-------------|
+| `--card-url` | Custom agent card path (overrides discovery) |
+| `--timeout` | Request timeout in seconds (default: 5) |
+
+**Discovery paths** (tried in order):
+1. `/.well-known/agent.json` (A2A v0.1)
+2. `/.well-known/agent-card.json` (A2A v0.2+)
+3. `/.well-known/agents.json` (Wildcard spec)
 
 ### `x402 test <url>`
 
@@ -308,6 +369,7 @@ The x402 protocol enables payment-gated APIs using HTTP 402 responses and gasles
 
 - [x402 Protocol](https://github.com/coinbase/x402)
 - [Coinbase x402 Docs](https://docs.cdp.coinbase.com/x402/welcome)
+- [A2A Protocol](https://a2a-protocol.org) — Agent-to-Agent discovery standard
 - [EIP-3009 Spec](https://eips.ethereum.org/EIPS/eip-3009)
 - [EIP-712 Spec](https://eips.ethereum.org/EIPS/eip-712)
 
