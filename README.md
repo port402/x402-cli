@@ -19,6 +19,7 @@
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Sample Output](#sample-output)
 - [Commands](#commands)
 - [Configuration](#configuration)
 - [Examples](#examples)
@@ -64,6 +65,70 @@ x402 test https://api.example.com/resource --keystore ~/.foundry/keystores/my-wa
 
 ```bash
 x402 test https://api.example.com/resource --keystore ~/.foundry/keystores/my-wallet --dry-run
+```
+
+## Sample Output
+
+### Health Check
+
+```
+$ x402 health https://x402-dotnet.azurewebsites.net/resource/middleware
+
+✓ x402 endpoint detected (v2)
+
+Payment Requirements:
+  Network:   Base Sepolia (eip155:84532)
+  Token:     USDC (0x036c...cf7e)
+  Amount:    0.001000 USDC
+  Recipient: 0xB889...64fc
+```
+
+### Dry Run
+
+```
+$ x402 test https://x402-dotnet.azurewebsites.net/resource/middleware \
+    --keystore ~/.foundry/keystores/test --dry-run
+
+✓ x402 endpoint detected (v2)
+
+Payment Requirements:
+  Network:   Base Sepolia (eip155:84532)
+  Token:     USDC (0x036c...cf7e)
+  Amount:    0.001000 USDC
+  Recipient: 0xB889...64fc
+
+⚠ Dry run mode - no payment will be made
+```
+
+### Successful Payment
+
+```
+$ x402 test https://x402-dotnet.azurewebsites.net/resource/middleware \
+    --keystore ~/.foundry/keystores/test
+
+✓ x402 endpoint detected (v2)
+
+Payment Requirements:
+  Network:   Base Sepolia (eip155:84532)
+  Token:     USDC (0x036c...cf7e)
+  Amount:    0.001000 USDC
+  Recipient: 0xB889...64fc
+
+? Proceed with payment? [y/N] y
+
+  • Loading wallet...
+  • Signing payment authorization...
+  • Sending payment...
+
+✓ Payment successful!
+  Transaction: 0xb945a8c...
+  Explorer:    https://sepolia.basescan.org/tx/0xb945a8c...
+
+Response (200 OK):
+{
+  "message": "Access granted",
+  "timestamp": "2026-01-12T10:30:00Z"
+}
 ```
 
 ## Commands
