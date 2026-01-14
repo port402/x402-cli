@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/port402/x402-cli/internal/a2a"
 	"github.com/port402/x402-cli/internal/tokens"
 )
 
@@ -53,6 +54,7 @@ type HealthResult struct {
 	Checks         []Check                `json:"checks"`
 	ExitCode       int                    `json:"exitCode"`
 	Error          string                 `json:"error,omitempty"`
+	AgentCard      *a2a.Result            `json:"agentCard,omitempty"`
 }
 
 // TestResult contains the complete test payment result.
@@ -118,11 +120,56 @@ func PrintHealthResult(result *HealthResult, verbose bool) {
 		}
 	}
 
+	// Agent card section (when --agent flag used)
+	if result.AgentCard != nil {
+		printAgentSection(result.AgentCard)
+	}
+
 	// Error line for failures (no "Result:" footer)
 	if failCount > 0 {
 		fmt.Println()
 		fmt.Printf("Error: endpoint is not x402-enabled\n")
 	}
+}
+
+// printAgentSection outputs the agent card discovery result.
+func printAgentSection(result *a2a.Result) {
+	fmt.Println()
+	if !result.Found {
+		fmt.Println("  Agent:    not found")
+		return
+	}
+
+	card := result.Card
+	fmt.Printf("  Agent:    %s v%s\n", card.Name, card.Version)
+	if card.Description != "" {
+		fmt.Printf("            %s\n", card.Description)
+	}
+
+	if len(card.Skills) > 0 {
+		fmt.Printf("  Skills:   %d available\n", len(card.Skills))
+	}
+
+	caps := formatCapabilities(card.Capabilities)
+	if caps != "" {
+		fmt.Printf("  Capabilities: %s\n", caps)
+	}
+}
+
+// formatCapabilities returns a comma-separated list of enabled capabilities.
+func formatCapabilities(caps *a2a.Capabilities) string {
+	if caps == nil {
+		return ""
+	}
+
+	var enabled []string
+	if caps.Streaming {
+		enabled = append(enabled, "streaming")
+	}
+	if caps.PushNotifications {
+		enabled = append(enabled, "push")
+	}
+	return strings.Join(enabled, ", ")
 }
 
 // PrintTestResult outputs the test payment result in human-readable format.
