@@ -118,9 +118,16 @@ $ x402 health https://api.example.com/endpoint --agent
     ✓ Has EVM option
     ✓ Known token
 
-  Agent:        Recipe Agent v1.0.0
-                Agent that helps with recipes
-  Skills:       2 available
+  Agent:    Recipe Agent v1.0.0
+            Agent that helps with recipes
+  Provider: Example Inc (https://example.com)
+
+  Skills:
+    • recipe-search
+      Find recipes by ingredients or cuisine type
+    • meal-plan
+      Generate weekly meal plans based on preferences
+
   Capabilities: streaming
 ```
 
