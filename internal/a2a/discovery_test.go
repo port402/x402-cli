@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -335,4 +336,50 @@ func TestDiscover_WithProvider(t *testing.T) {
 	require.NotNil(t, result.Card.Provider)
 	assert.Equal(t, "Test Org", result.Card.Provider.Organization)
 	assert.Equal(t, "https://test.org", result.Card.Provider.URL)
+}
+
+func TestDiscover_Timeout(t *testing.T) {
+	// Server that sleeps longer than the timeout
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Use a very short timeout (100ms) so the server's 500ms sleep causes a timeout
+	result := Discover(context.Background(), server.URL, "/.well-known/agent.json", 100*time.Millisecond)
+
+	assert.False(t, result.Found)
+	assert.Equal(t, 3, result.ExitCode) // Network error exit code
+	assert.NotEmpty(t, result.Error)
+	// Go's http.Client reports timeouts as "context deadline exceeded" or "Client.Timeout"
+	assert.True(t, strings.Contains(result.Error, "deadline exceeded") ||
+		strings.Contains(result.Error, "Timeout"), "expected timeout error, got: %s", result.Error)
+}
+
+func TestDiscover_RedirectLimit(t *testing.T) {
+	redirectCount := 0
+
+	// Server that redirects more than 3 times
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirectCount++
+		if redirectCount <= 5 {
+			// Keep redirecting (more than the 3 redirect limit)
+			http.Redirect(w, r, r.URL.Path, http.StatusFound)
+			return
+		}
+		// Should never reach here if redirect limit works
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	result := Discover(context.Background(), server.URL, "/.well-known/agent.json", 5*time.Second)
+
+	assert.False(t, result.Found)
+	assert.Equal(t, 3, result.ExitCode) // Network error exit code for redirect failure
+	assert.NotEmpty(t, result.Error)
+	assert.Contains(t, result.Error, "redirect")
+
+	// Should have stopped after 4 requests (1 original + 3 redirects)
+	assert.LessOrEqual(t, redirectCount, 4)
 }
