@@ -75,6 +75,19 @@ var knownTokens = map[string]TokenInfo{
 		Decimals: 6,
 		Name:     "USDC (Testnet)",
 	},
+
+	// Solana Mainnet USDC (EPjFWdd5AufqSSqeM2qN1xzyBapC8G4wEGGkZwyTDt1v)
+	"solana:5eykt4usfv8p8njdtrepyvzqkkqzvdp:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USD Coin",
+	},
+	// Solana Devnet USDC (4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU)
+	"solana:etwtraBzayq6imfeykourU166vu2xqa1:4zmmklwxuaang64fqzspccby4tli5pcjth2alywkp5qf": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USDC (Devnet)",
+	},
 }
 
 // NetworkInfo contains metadata for a known network.
@@ -106,6 +119,11 @@ var networkNames = map[string]NetworkInfo{
 	"polygon":      {Name: "Polygon Mainnet", IsTestnet: false},
 	"arbitrum":     {Name: "Arbitrum One", IsTestnet: false},
 	"optimism":     {Name: "Optimism", IsTestnet: false},
+
+	// Solana networks (CAIP-2 format)
+	"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": {Name: "Solana Mainnet", IsTestnet: false},
+	"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {Name: "Solana Devnet", IsTestnet: true},
+	"solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z": {Name: "Solana Testnet", IsTestnet: true},
 }
 
 // GetTokenInfo looks up token metadata by network and asset address.

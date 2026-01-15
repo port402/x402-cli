@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 )
 
-// BuildPayloadV2 constructs the v2 payment payload for the PAYMENT-SIGNATURE header.
+// BuildPayloadV2 constructs the v2 EVM payment payload for the PAYMENT-SIGNATURE header.
 func BuildPayloadV2(resource ResourceInfo, option *PaymentRequirement, signature string, auth Authorization) *PaymentPayloadV2 {
 	return &PaymentPayloadV2{
 		X402Version: ProtocolV2,
@@ -22,6 +22,27 @@ func BuildPayloadV2(resource ResourceInfo, option *PaymentRequirement, signature
 		Payload: ExactEvmPayload{
 			Signature:     signature,
 			Authorization: auth,
+		},
+	}
+}
+
+// BuildPayloadV2Solana constructs the v2 Solana payment payload for the PAYMENT-SIGNATURE header.
+// The transaction parameter is a base64-encoded, partially-signed Solana transaction.
+func BuildPayloadV2Solana(resource ResourceInfo, option *PaymentRequirement, transaction string) *PaymentPayloadV2Solana {
+	return &PaymentPayloadV2Solana{
+		X402Version: ProtocolV2,
+		Resource:    resource,
+		Accepted: AcceptedOption{
+			Scheme:            option.Scheme,
+			Network:           option.Network,
+			Amount:            option.GetAmount(),
+			Asset:             option.Asset,
+			PayTo:             option.PayTo,
+			MaxTimeoutSeconds: option.MaxTimeoutSeconds,
+			Extra:             option.Extra,
+		},
+		Payload: ExactSvmPayload{
+			Transaction: transaction,
 		},
 	}
 }

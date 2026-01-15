@@ -72,13 +72,28 @@ type ExactEvmPayload struct {
 	Authorization Authorization `json:"authorization"`
 }
 
-// PaymentPayloadV2 is the v2 protocol payment payload structure.
+// ExactSvmPayload contains the transaction for Solana payments.
+// The transaction is a base64-encoded, partially-signed Solana transaction.
+type ExactSvmPayload struct {
+	Transaction string `json:"transaction"`
+}
+
+// PaymentPayloadV2 is the v2 protocol payment payload structure for EVM.
 // Sent in the PAYMENT-SIGNATURE header (base64 encoded).
 type PaymentPayloadV2 struct {
 	X402Version int             `json:"x402Version"`
 	Resource    ResourceInfo    `json:"resource"`
 	Accepted    AcceptedOption  `json:"accepted"`
 	Payload     ExactEvmPayload `json:"payload"`
+}
+
+// PaymentPayloadV2Solana is the v2 protocol payment payload structure for Solana.
+// Sent in the PAYMENT-SIGNATURE header (base64 encoded).
+type PaymentPayloadV2Solana struct {
+	X402Version int             `json:"x402Version"`
+	Resource    ResourceInfo    `json:"resource"`
+	Accepted    AcceptedOption  `json:"accepted"`
+	Payload     ExactSvmPayload `json:"payload"`
 }
 
 // AcceptedOption mirrors PaymentRequirement for the accepted field.

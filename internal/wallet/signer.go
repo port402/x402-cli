@@ -18,19 +18,25 @@ type Signer interface {
 }
 
 // SignParams contains parameters for signing a payment authorization.
-// Currently supports EVM EIP-3009 TransferWithAuthorization parameters.
-// Future implementations may use a subset of these fields.
+// Supports both EVM (EIP-3009) and Solana payment parameters.
+// Different signers use different subsets of these fields.
 type SignParams struct {
-	ChainID        int64  // Chain ID (e.g., 84532 for Base Sepolia, 1 for Ethereum mainnet)
-	TokenAddress   string // Token contract address
-	TokenName      string // Token name for EIP-712 domain (e.g., "USDC")
-	TokenVersion   string // Token version for EIP-712 domain (e.g., "2")
+	// Common fields (all chains)
+	TokenAddress   string // Token contract/mint address
 	From           string // Payer address (signer)
 	To             string // Recipient address
 	Value          string // Amount in atomic units
-	ValidAfter     int64  // Unix timestamp, usually 0
-	ValidBefore    int64  // Unix timestamp for expiration
-	TimeoutSeconds int    // Added to current time if ValidBefore is 0
+	TimeoutSeconds int    // Timeout for payment validity
+
+	// EVM-specific fields
+	ChainID      int64  // EVM chain ID (e.g., 84532 for Base Sepolia)
+	TokenName    string // Token name for EIP-712 domain (e.g., "USDC")
+	TokenVersion string // Token version for EIP-712 domain (e.g., "2")
+	ValidAfter   int64  // Unix timestamp, usually 0
+	ValidBefore  int64  // Unix timestamp for expiration
+
+	// Solana-specific fields
+	FeePayer string // Fee payer public key (facilitator)
 }
 
 // SignResult contains the signature and authorization details.
