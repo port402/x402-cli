@@ -267,8 +267,11 @@ func runTest(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "• Signing EIP-3009 authorization...")
 	}
 
+	// Create signer from loaded private key
+	signer := wallet.NewEVMSigner(privateKeyLoaded)
+
 	signParams := wallet.PrepareSignParams(evmOption, fromAddress, chainID)
-	signResult, err := wallet.SignTransferAuthorization(privateKeyLoaded, signParams)
+	signResult, err := signer.Sign(signParams)
 	if err != nil {
 		return fmt.Errorf("failed to sign authorization: %w", err)
 	}
