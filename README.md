@@ -54,6 +54,7 @@ Download pre-built binaries from the [releases page](https://github.com/port402/
 
 ```bash
 x402 health https://api.example.com/resource
+x402 health https://api.example.com/resource --agent   # Also check for agent card
 ```
 
 ### Discover A2A agent card
@@ -81,13 +82,53 @@ x402 test https://api.example.com/resource --keystore ~/.foundry/keystores/my-wa
 ```
 $ x402 health https://x402-dotnet.azurewebsites.net/resource/middleware
 
-✓ x402 endpoint detected (v2)
+✓ https://x402-dotnet.azurewebsites.net/resource/middleware
 
-Payment Requirements:
-  Network:   Base Sepolia (eip155:84532)
-  Token:     USDC (0x036c...cf7e)
-  Amount:    0.001000 USDC
-  Recipient: 0xB889...64fc
+  Status:   402 Payment Required
+  Protocol: v2 (current)
+  Latency:  150ms
+  Payment:  0.001 USDC on Base Sepolia
+
+  Checks:
+    ✓ Endpoint reachable
+    ✓ Returns 402
+    ✓ Valid payment header
+    ✓ Has payment options
+    ✓ Has EVM option
+    ✓ Known token
+```
+
+### Health Check with Agent Discovery
+
+```
+$ x402 health https://api.example.com/endpoint --agent
+
+✓ https://api.example.com/endpoint
+
+  Status:   402 Payment Required
+  Protocol: v2 (current)
+  Latency:  120ms
+  Payment:  0.01 USDC on Base
+
+  Checks:
+    ✓ Endpoint reachable
+    ✓ Returns 402
+    ✓ Valid payment header
+    ✓ Has payment options
+    ✓ Has EVM option
+    ✓ Known token
+
+  Agent:    Recipe Agent v1.0.0
+            Agent that helps with recipes
+  Provider: Example Inc (https://example.com)
+
+  Skills:
+    • recipe-search
+      Find recipes by ingredients or cuisine type
+    • meal-plan
+      Generate weekly meal plans based on preferences
+
+  Capabilities: streaming
 ```
 
 ### Dry Run
@@ -182,7 +223,14 @@ Check if an endpoint is x402-enabled and validate its payment requirements.
 x402 health https://api.example.com/endpoint
 x402 health https://api.example.com/endpoint --json          # JSON output
 x402 health https://api.example.com/endpoint --method POST   # POST-only APIs
+x402 health https://api.example.com/endpoint --agent         # Also discover agent card
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--agent` | Also discover A2A agent card from the endpoint |
+| `--method` | HTTP method (default: GET) |
+| `--timeout` | Request timeout in seconds (default: 30) |
 
 ### `x402 agent <url>`
 

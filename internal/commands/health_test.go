@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/port402/x402-cli/internal/a2a"
 	"github.com/port402/x402-cli/internal/output"
 	"github.com/port402/x402-cli/internal/x402"
 )
@@ -305,4 +306,63 @@ func TestCheckHealthForBatch_Latency(t *testing.T) {
 
 	// Latency should be captured
 	assert.GreaterOrEqual(t, result.LatencyMs, int64(50))
+}
+
+func TestHealthResult_AgentCardField(t *testing.T) {
+	t.Run("found", func(t *testing.T) {
+		result := &output.HealthResult{
+			URL:      "https://example.com",
+			Status:   402,
+			Protocol: "v2",
+			AgentCard: &a2a.Result{
+				Found:         true,
+				DiscoveryPath: "/.well-known/agent.json",
+				Card: &a2a.AgentCard{
+					Name:         "Test Agent",
+					Version:      "1.0.0",
+					Description:  "A test agent",
+					Skills:       []a2a.Skill{{ID: "skill1", Name: "Skill One"}},
+					Capabilities: &a2a.Capabilities{Streaming: true},
+				},
+			},
+		}
+
+		require.NotNil(t, result.AgentCard)
+		assert.True(t, result.AgentCard.Found)
+		assert.Equal(t, "Test Agent", result.AgentCard.Card.Name)
+		assert.Equal(t, "1.0.0", result.AgentCard.Card.Version)
+		assert.Len(t, result.AgentCard.Card.Skills, 1)
+		assert.True(t, result.AgentCard.Card.Capabilities.Streaming)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		result := &output.HealthResult{
+			URL:      "https://example.com",
+			Status:   402,
+			Protocol: "v2",
+			AgentCard: &a2a.Result{
+				Found: false,
+				TriedPaths: []a2a.PathAttempt{
+					{Path: "/.well-known/agent.json", Status: 404},
+					{Path: "/.well-known/agent-card.json", Status: 404},
+				},
+			},
+		}
+
+		require.NotNil(t, result.AgentCard)
+		assert.False(t, result.AgentCard.Found)
+		assert.Nil(t, result.AgentCard.Card)
+		assert.Len(t, result.AgentCard.TriedPaths, 2)
+	})
+
+	t.Run("nil when flag not used", func(t *testing.T) {
+		result := &output.HealthResult{
+			URL:       "https://example.com",
+			Status:    402,
+			Protocol:  "v2",
+			AgentCard: nil,
+		}
+
+		assert.Nil(t, result.AgentCard)
+	})
 }

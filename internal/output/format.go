@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/port402/x402-cli/internal/a2a"
 	"github.com/port402/x402-cli/internal/tokens"
 )
 
@@ -53,6 +54,7 @@ type HealthResult struct {
 	Checks         []Check                `json:"checks"`
 	ExitCode       int                    `json:"exitCode"`
 	Error          string                 `json:"error,omitempty"`
+	AgentCard      *a2a.Result            `json:"agentCard,omitempty"`
 }
 
 // TestResult contains the complete test payment result.
@@ -118,11 +120,77 @@ func PrintHealthResult(result *HealthResult, verbose bool) {
 		}
 	}
 
+	// Agent card section (when --agent flag used)
+	if result.AgentCard != nil {
+		printAgentSection(result.AgentCard)
+	}
+
 	// Error line for failures (no "Result:" footer)
 	if failCount > 0 {
 		fmt.Println()
 		fmt.Printf("Error: endpoint is not x402-enabled\n")
 	}
+}
+
+// printAgentSection outputs the agent card discovery result.
+func printAgentSection(result *a2a.Result) {
+	fmt.Println()
+	if !result.Found {
+		fmt.Println("  Agent:    not found")
+		return
+	}
+
+	card := result.Card
+	fmt.Printf("  Agent:    %s v%s\n", card.Name, card.Version)
+	if card.Description != "" {
+		fmt.Printf("            %s\n", card.Description)
+	}
+
+	// Provider info
+	if card.Provider != nil && card.Provider.Organization != "" {
+		provider := card.Provider.Organization
+		if card.Provider.URL != "" {
+			provider = fmt.Sprintf("%s (%s)", provider, card.Provider.URL)
+		}
+		fmt.Printf("  Provider: %s\n", provider)
+	}
+
+	// Skills list
+	fmt.Println()
+	if len(card.Skills) == 0 {
+		fmt.Println("  Skills:   none")
+	} else {
+		fmt.Println("  Skills:")
+		for _, skill := range card.Skills {
+			fmt.Printf("    • %s\n", skill.Name)
+			if skill.Description != "" {
+				fmt.Printf("      %s\n", truncateText(skill.Description, 60))
+			}
+		}
+	}
+
+	// Capabilities
+	caps := formatCapabilities(card.Capabilities)
+	if caps != "" {
+		fmt.Println()
+		fmt.Printf("  Capabilities: %s\n", caps)
+	}
+}
+
+// formatCapabilities returns a comma-separated list of enabled capabilities.
+func formatCapabilities(caps *a2a.Capabilities) string {
+	if caps == nil {
+		return ""
+	}
+
+	var enabled []string
+	if caps.Streaming {
+		enabled = append(enabled, "streaming")
+	}
+	if caps.PushNotifications {
+		enabled = append(enabled, "push")
+	}
+	return strings.Join(enabled, ", ")
 }
 
 // PrintTestResult outputs the test payment result in human-readable format.
@@ -257,6 +325,17 @@ func countChecks(checks []Check) (failCount, warnCount int) {
 		}
 	}
 	return
+}
+
+// truncateText truncates a string to maxLen characters, adding "..." if truncated.
+func truncateText(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return "..."
+	}
+	return s[:maxLen-3] + "..."
 }
 
 // errorMessageReplacements maps status codes to clean error messages for payment failures.

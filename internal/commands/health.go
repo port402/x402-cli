@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/port402/x402-cli/internal/a2a"
 	"github.com/port402/x402-cli/internal/client"
 	"github.com/port402/x402-cli/internal/output"
 	"github.com/port402/x402-cli/internal/tokens"
@@ -17,6 +18,7 @@ import (
 var (
 	healthTimeout int
 	healthMethod  string
+	healthAgent   bool
 )
 
 var healthCmd = &cobra.Command{
@@ -31,11 +33,14 @@ Validates:
   - Has EVM payment options
   - Uses known tokens
 
+Use --agent to also discover A2A agent cards from the endpoint.
+
 Examples:
   x402 health https://api.example.com/endpoint
   x402 health https://api.example.com/endpoint --json
   x402 health https://api.example.com/endpoint --verbose
-  x402 health https://api.example.com/endpoint --method POST`,
+  x402 health https://api.example.com/endpoint --method POST
+  x402 health https://api.example.com/endpoint --agent`,
 	Args: cobra.ExactArgs(1),
 	RunE: runHealth,
 }
@@ -43,13 +48,22 @@ Examples:
 func init() {
 	healthCmd.Flags().IntVar(&healthTimeout, "timeout", 30, "Request timeout in seconds")
 	healthCmd.Flags().StringVarP(&healthMethod, "method", "X", "GET", "HTTP method")
+	healthCmd.Flags().BoolVar(&healthAgent, "agent", false, "Also discover A2A agent card")
 	rootCmd.AddCommand(healthCmd)
 }
 
 func runHealth(cmd *cobra.Command, args []string) error {
 	url := args[0]
+	timeout := time.Duration(healthTimeout) * time.Second
 
-	result := checkHealth(url, time.Duration(healthTimeout)*time.Second, healthMethod)
+	result := checkHealth(url, timeout, healthMethod)
+
+	// Optionally discover agent card
+	var agentResult *a2a.Result
+	if healthAgent {
+		agentResult = a2a.Discover(cmd.Context(), url, "", timeout)
+		result.AgentCard = agentResult
+	}
 
 	if GetJSONOutput() {
 		return output.PrintJSON(result)
