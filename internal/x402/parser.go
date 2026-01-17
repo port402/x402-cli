@@ -25,6 +25,22 @@ const (
 	SolanaTestnet = "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"
 )
 
+// solanaNetworkAliases maps common Solana network names to their CAIP-2 identifiers.
+// This handles v1 protocol which may use simple names instead of CAIP-2 format.
+var solanaNetworkAliases = map[string]string{
+	// Mainnet aliases
+	"solana":              SolanaMainnet,
+	"solana-mainnet":      SolanaMainnet,
+	"solana-mainnet-beta": SolanaMainnet,
+	"mainnet-beta":        SolanaMainnet,
+	// Devnet aliases
+	"solana-devnet": SolanaDevnet,
+	"devnet":        SolanaDevnet,
+	// Testnet aliases
+	"solana-testnet": SolanaTestnet,
+	"testnet":        SolanaTestnet,
+}
+
 // ParseResult contains the parsed payment requirements and metadata.
 type ParseResult struct {
 	PaymentRequired *PaymentRequired
@@ -196,9 +212,15 @@ func HasOnlySolanaOptions(pr *PaymentRequired) bool {
 }
 
 // IsSolanaNetwork checks if the network is a Solana chain.
-// Supports CAIP-2 format (solana:*).
+// Supports both CAIP-2 format (solana:*) and common network names.
 func IsSolanaNetwork(network string) bool {
-	return strings.HasPrefix(network, caip2SolanaPrefix) && len(network) > len(caip2SolanaPrefix)
+	// Check CAIP-2 format (must have content after prefix)
+	if strings.HasPrefix(network, caip2SolanaPrefix) && len(network) > len(caip2SolanaPrefix) {
+		return true
+	}
+	// Check known aliases
+	_, ok := solanaNetworkAliases[network]
+	return ok
 }
 
 // FindSolanaOption returns the first Solana payment option.
@@ -212,9 +234,27 @@ func FindSolanaOption(pr *PaymentRequired) *PaymentRequirement {
 	return nil
 }
 
+// NormalizeSolanaNetwork converts a Solana network name to its CAIP-2 identifier.
+// Returns the original string if already in CAIP-2 format or unknown.
+func NormalizeSolanaNetwork(network string) string {
+	// Already in CAIP-2 format
+	if strings.HasPrefix(network, caip2SolanaPrefix) {
+		return network
+	}
+	// Check aliases
+	if caip2, ok := solanaNetworkAliases[network]; ok {
+		return caip2
+	}
+	return network
+}
+
 // GetSolanaRPCURL returns the appropriate RPC URL for a Solana network.
+// Supports both CAIP-2 format and common network names.
 func GetSolanaRPCURL(network string) string {
-	switch network {
+	// Normalize to CAIP-2 format first
+	normalized := NormalizeSolanaNetwork(network)
+
+	switch normalized {
 	case SolanaMainnet:
 		return "https://api.mainnet-beta.solana.com"
 	case SolanaDevnet:

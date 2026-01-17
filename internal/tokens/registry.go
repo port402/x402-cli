@@ -76,14 +76,47 @@ var knownTokens = map[string]TokenInfo{
 		Name:     "USDC (Testnet)",
 	},
 
-	// Solana Mainnet USDC (EPjFWdd5AufqSSqeM2qN1xzyBapC8G4wEGGkZwyTDt1v)
-	"solana:5eykt4usfv8p8njdtrepyvzqkkqzvdp:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+	// Solana Mainnet USDC (CAIP-2 format)
+	"solana:5eykt4usfv8p8njdtrepyvzqkqzkvdp:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	// Solana Devnet USDC (4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU)
-	"solana:etwtraBzayq6imfeykourU166vu2xqa1:4zmmklwxuaang64fqzspccby4tli5pcjth2alywkp5qf": {
+	// Solana Mainnet USDC (simple network names)
+	"solana:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USD Coin",
+	},
+	"solana-mainnet-beta:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USD Coin",
+	},
+	"solana-mainnet:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USD Coin",
+	},
+	"mainnet-beta:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USD Coin",
+	},
+
+	// Solana Devnet USDC (CAIP-2 format)
+	"solana:etwtraBzayq6imfeykourU166vu2xqa1:4zmmc9srt5ri5x14gagxhahii3gnpaeeryPjgzjdncdu": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USDC (Devnet)",
+	},
+	// Solana Devnet USDC (simple network names)
+	"solana-devnet:4zmmc9srt5ri5x14gagxhahii3gnpaeeryPjgzjdncdu": {
+		Symbol:   "USDC",
+		Decimals: 6,
+		Name:     "USDC (Devnet)",
+	},
+	"devnet:4zmmc9srt5ri5x14gagxhahii3gnpaeeryPjgzjdncdu": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USDC (Devnet)",
@@ -124,6 +157,14 @@ var networkNames = map[string]NetworkInfo{
 	"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": {Name: "Solana Mainnet", IsTestnet: false},
 	"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": {Name: "Solana Devnet", IsTestnet: true},
 	"solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z": {Name: "Solana Testnet", IsTestnet: true},
+
+	// Solana networks (simple name aliases)
+	"solana":              {Name: "Solana Mainnet", IsTestnet: false},
+	"solana-mainnet":      {Name: "Solana Mainnet", IsTestnet: false},
+	"solana-mainnet-beta": {Name: "Solana Mainnet", IsTestnet: false},
+	"mainnet-beta":        {Name: "Solana Mainnet", IsTestnet: false},
+	"solana-devnet":       {Name: "Solana Devnet", IsTestnet: true},
+	"solana-testnet":      {Name: "Solana Testnet", IsTestnet: true},
 }
 
 // GetTokenInfo looks up token metadata by network and asset address.
