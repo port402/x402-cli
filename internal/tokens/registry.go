@@ -76,47 +76,47 @@ var knownTokens = map[string]TokenInfo{
 		Name:     "USDC (Testnet)",
 	},
 
-	// Solana Mainnet USDC (CAIP-2 format)
-	"solana:5eykt4usfv8p8njdtrepyvzqkqzkvdp:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+	// Solana Mainnet USDC (CAIP-2 format - case-sensitive base58)
+	"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	// Solana Mainnet USDC (simple network names)
-	"solana:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+	// Solana Mainnet USDC (simple network names - case-sensitive base58)
+	"solana:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	"solana-mainnet-beta:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+	"solana-mainnet-beta:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	"solana-mainnet:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+	"solana-mainnet:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	"mainnet-beta:epjfwdd5aufqssqem2qn1xzybapC8g4weggkzwytdt1v": {
+	"mainnet-beta:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
 
-	// Solana Devnet USDC (CAIP-2 format)
-	"solana:etwtraBzayq6imfeykourU166vu2xqa1:4zmmc9srt5ri5x14gagxhahii3gnpaeeryPjgzjdncdu": {
+	// Solana Devnet USDC (CAIP-2 format - case-sensitive base58)
+	"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1:4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USDC (Devnet)",
 	},
-	// Solana Devnet USDC (simple network names)
-	"solana-devnet:4zmmc9srt5ri5x14gagxhahii3gnpaeeryPjgzjdncdu": {
+	// Solana Devnet USDC (simple network names - case-sensitive base58)
+	"solana-devnet:4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USDC (Devnet)",
 	},
-	"devnet:4zmmc9srt5ri5x14gagxhahii3gnpaeeryPjgzjdncdu": {
+	"devnet:4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USDC (Devnet)",
@@ -169,9 +169,16 @@ var networkNames = map[string]NetworkInfo{
 
 // GetTokenInfo looks up token metadata by network and asset address.
 // Returns nil if the token is not in the registry.
+// Solana addresses are case-sensitive (base58), EVM addresses are not (hex).
 func GetTokenInfo(network, asset string) *TokenInfo {
-	key := strings.ToLower(network + ":" + asset)
-	if info, ok := knownTokens[key]; ok {
+	// Try exact match first (required for case-sensitive Solana addresses)
+	exactKey := network + ":" + asset
+	if info, ok := knownTokens[exactKey]; ok {
+		return &info
+	}
+	// Fall back to lowercase for case-insensitive EVM addresses
+	lowerKey := strings.ToLower(exactKey)
+	if info, ok := knownTokens[lowerKey]; ok {
 		return &info
 	}
 	return nil

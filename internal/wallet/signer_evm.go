@@ -50,7 +50,9 @@ func (s *EVMSigner) Sign(params SignParams) (*SignResult, error) {
 
 	// Parse value as big.Int
 	value := new(big.Int)
-	value.SetString(params.Value, 10)
+	if _, ok := value.SetString(params.Value, 10); !ok {
+		return nil, fmt.Errorf("invalid payment value: %q", params.Value)
+	}
 
 	// Build EIP-712 typed data
 	typedData := buildTypedData(params, nonce, validBefore, value)

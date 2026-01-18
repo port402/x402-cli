@@ -46,10 +46,20 @@ func GetExplorerURL(network, txHash string) string {
 }
 
 // buildExplorerURL constructs an explorer URL, handling Solana's query param format.
+// Solscan uses /tx/<sig>?cluster=devnet and /account/<addr>?cluster=devnet
 func buildExplorerURL(network, baseURL, pathType, value string) string {
-	// Solana explorers (solscan.io) use query params for cluster selection
-	if strings.HasPrefix(network, "solana:") && strings.Contains(baseURL, "?") {
-		return fmt.Sprintf("%s&%s=%s", baseURL, pathType, value)
+	if strings.HasPrefix(network, "solana:") {
+		// Solana uses /account/ not /address/
+		if pathType == "address" {
+			pathType = "account"
+		}
+		// Split base URL into host and query string
+		if idx := strings.Index(baseURL, "?"); idx != -1 {
+			host := baseURL[:idx]
+			query := baseURL[idx:]
+			return fmt.Sprintf("%s/%s/%s%s", host, pathType, value, query)
+		}
+		return fmt.Sprintf("%s/%s/%s", baseURL, pathType, value)
 	}
 	return fmt.Sprintf("%s/%s/%s", baseURL, pathType, value)
 }
