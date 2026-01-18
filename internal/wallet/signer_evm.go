@@ -80,10 +80,17 @@ func (s *EVMSigner) Sign(params SignParams) (*SignResult, error) {
 		return nil, fmt.Errorf("failed to sign: %w", err)
 	}
 
-	// Adjust v value for Ethereum (add 27)
-	if signature[64] < 27 {
-		signature[64] += 27
+	// Validate signature format (65 bytes: r[32] + s[32] + v[1])
+	if len(signature) != 65 {
+		return nil, fmt.Errorf("unexpected signature length: got %d, want 65", len(signature))
 	}
+
+	// Adjust v value for Ethereum (add 27)
+	// go-ethereum's crypto.Sign returns v as 0 or 1; Ethereum expects 27 or 28
+	if signature[64] > 1 {
+		return nil, fmt.Errorf("unexpected recovery id: got %d, want 0 or 1", signature[64])
+	}
+	signature[64] += 27
 
 	return &SignResult{
 		Signature: "0x" + common.Bytes2Hex(signature),

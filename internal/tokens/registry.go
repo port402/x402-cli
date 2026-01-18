@@ -11,7 +11,7 @@ type TokenInfo struct {
 }
 
 // knownTokens maps "network:asset" to token metadata.
-// Keys are lowercase for case-insensitive lookup.
+// EVM keys are lowercase; Solana keys preserve base58 case.
 // Supports both CAIP-2 format (eip155:*) and simple network names (base).
 var knownTokens = map[string]TokenInfo{
 	// Base Mainnet (CAIP-2)
