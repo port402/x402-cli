@@ -166,7 +166,7 @@ func TestCheckHealthForBatch_SolanaOnly(t *testing.T) {
 		X402Version: 2,
 		Accepts: []x402.PaymentRequirement{{
 			Scheme:  "exact",
-			Network: "solana:mainnet",
+			Network: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
 			Amount:  "1000000",
 			Asset:   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 			PayTo:   "SomeSOLAddress",
@@ -178,19 +178,19 @@ func TestCheckHealthForBatch_SolanaOnly(t *testing.T) {
 
 	result := CheckHealthForBatch(server.URL, 30*time.Second)
 
-	// Should succeed but with warning about no EVM options
+	// Should succeed with Solana option supported
 	assert.Equal(t, 0, result.ExitCode)
 	assert.Len(t, result.PaymentOptions, 1)
-	assert.False(t, result.PaymentOptions[0].Supported)
+	assert.True(t, result.PaymentOptions[0].Supported)
 
-	// Should have warning
-	var foundEvmWarning bool
+	// Should have Solana option check pass
+	var foundSolanaPass bool
 	for _, check := range result.Checks {
-		if check.Name == "Has EVM option" && check.Status == output.StatusWarn {
-			foundEvmWarning = true
+		if check.Name == "Has Solana option" && check.Status == output.StatusPass {
+			foundSolanaPass = true
 		}
 	}
-	assert.True(t, foundEvmWarning)
+	assert.True(t, foundSolanaPass)
 }
 
 func TestCheckHealthForBatch_UnknownToken(t *testing.T) {
@@ -244,7 +244,7 @@ func TestCheckHealthForBatch_MultiplePaymentOptions(t *testing.T) {
 			},
 			{
 				Scheme:  "exact",
-				Network: "solana:mainnet",
+				Network: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
 				Amount:  "3000000",
 				Asset:   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 				PayTo:   "SomeSOLAddress",
@@ -260,10 +260,10 @@ func TestCheckHealthForBatch_MultiplePaymentOptions(t *testing.T) {
 	assert.Equal(t, 0, result.ExitCode)
 	assert.Len(t, result.PaymentOptions, 3)
 
-	// First two should be supported (EVM), third should not (Solana)
+	// All should be supported (EVM and Solana)
 	assert.True(t, result.PaymentOptions[0].Supported)
 	assert.True(t, result.PaymentOptions[1].Supported)
-	assert.False(t, result.PaymentOptions[2].Supported)
+	assert.True(t, result.PaymentOptions[2].Supported)
 }
 
 func TestCheckHealthForBatch_NetworkError(t *testing.T) {

@@ -196,6 +196,7 @@ func checkHealth(url string, timeout time.Duration, method string) *output.Healt
 
 	// Process payment options
 	hasEvmOption := false
+	hasSolanaOption := false
 	hasKnownToken := false
 
 	for i, opt := range parseResult.PaymentRequired.Accepts {
@@ -212,10 +213,13 @@ func checkHealth(url string, timeout time.Duration, method string) *output.Healt
 		humanName := tokens.GetNetworkName(opt.Network)
 		po.NetworkName = fmt.Sprintf("%s (%s)", humanName, opt.Network)
 
-		// Check if EVM network
+		// Check if EVM or Solana network
 		if x402.IsEVMNetwork(opt.Network) {
 			po.Supported = true
 			hasEvmOption = true
+		} else if x402.IsSolanaNetwork(opt.Network) {
+			po.Supported = true
+			hasSolanaOption = true
 		}
 
 		// Look up token info
@@ -231,18 +235,26 @@ func checkHealth(url string, timeout time.Duration, method string) *output.Healt
 		result.PaymentOptions = append(result.PaymentOptions, po)
 	}
 
-	// Check 5: Has EVM option
+	// Check 5: Has supported network options
 	if hasEvmOption {
 		result.Checks = append(result.Checks, output.Check{
 			Name:    "Has EVM option",
 			Status:  output.StatusPass,
-			Message: "At least one EVM network (eip155:*) supported",
+			Message: "EVM network supported",
 		})
-	} else {
+	}
+	if hasSolanaOption {
 		result.Checks = append(result.Checks, output.Check{
-			Name:    "Has EVM option",
+			Name:    "Has Solana option",
+			Status:  output.StatusPass,
+			Message: "Solana network supported",
+		})
+	}
+	if !hasEvmOption && !hasSolanaOption {
+		result.Checks = append(result.Checks, output.Check{
+			Name:    "Has supported option",
 			Status:  output.StatusWarn,
-			Message: "No EVM options found (only EVM networks currently supported)",
+			Message: "No EVM or Solana options found",
 		})
 	}
 
