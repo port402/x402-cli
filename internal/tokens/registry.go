@@ -77,28 +77,28 @@ var knownTokens = map[string]TokenInfo{
 	},
 
 	// Solana Mainnet USDC (CAIP-2 format - case-sensitive base58)
-	"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
+	"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
 	// Solana Mainnet USDC (simple network names - case-sensitive base58)
-	"solana:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
+	"solana:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	"solana-mainnet-beta:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
+	"solana-mainnet-beta:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	"solana-mainnet:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
+	"solana-mainnet:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
 	},
-	"mainnet-beta:EPjFWdd5AufqSSqeM2qN1xzyBApC8G4wEGGkZwyTDt1v": {
+	"mainnet-beta:EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": {
 		Symbol:   "USDC",
 		Decimals: 6,
 		Name:     "USD Coin",
@@ -165,6 +165,8 @@ var networkNames = map[string]NetworkInfo{
 	"mainnet-beta":        {Name: "Solana Mainnet", IsTestnet: false},
 	"solana-devnet":       {Name: "Solana Devnet", IsTestnet: true},
 	"solana-testnet":      {Name: "Solana Testnet", IsTestnet: true},
+	"devnet":              {Name: "Solana Devnet", IsTestnet: true},
+	"testnet":             {Name: "Solana Testnet", IsTestnet: true},
 }
 
 // GetTokenInfo looks up token metadata by network and asset address.

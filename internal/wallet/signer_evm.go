@@ -22,7 +22,11 @@ type EVMSigner struct {
 }
 
 // NewEVMSigner creates a new EVM signer from an ECDSA private key.
+// Panics if key is nil (programming error).
 func NewEVMSigner(key *ecdsa.PrivateKey) *EVMSigner {
+	if key == nil {
+		panic("NewEVMSigner: nil private key")
+	}
 	return &EVMSigner{privateKey: key}
 }
 
