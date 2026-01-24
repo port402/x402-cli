@@ -1,119 +1,153 @@
 package wallet
 
 import (
+	"bytes"
+	"crypto/ed25519"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test keypair - NEVER use for real funds
-// Generated from a random seed for testing purposes only
-var testSolanaKeypair []byte
-
-func init() {
-	// Generate a valid Ed25519 keypair for testing
-	key, _ := solana.NewRandomPrivateKey()
-	testSolanaKeypair = key[:]
+// testSolanaKeypairBytes returns a deterministic Ed25519 keypair for testing.
+// NEVER use for real funds - this is a well-known test key.
+func testSolanaKeypairBytes(t *testing.T) []byte {
+	t.Helper()
+	seed := bytes.Repeat([]byte{0x01}, ed25519.SeedSize)
+	return ed25519.NewKeyFromSeed(seed)
 }
 
-func TestLoadSolanaKeypair_JSONArray(t *testing.T) {
-	// Create temp file with JSON array format
-	tmpDir := t.TempDir()
-	keypairPath := filepath.Join(tmpDir, "test-keypair.json")
+func TestLoadSolanaKeypair(t *testing.T) {
+	testKeypair := testSolanaKeypairBytes(t)
 
-	jsonData, err := json.Marshal(testSolanaKeypair)
-	require.NoError(t, err)
+	tests := []struct {
+		name        string
+		setup       func(t *testing.T, tmpDir string) string // returns path to keypair file
+		wantErr     bool
+		errContains string
+		wantLen     int
+	}{
+		{
+			name: "JSON array format",
+			setup: func(t *testing.T, tmpDir string) string {
+				path := filepath.Join(tmpDir, "keypair.json")
+				data, err := json.Marshal(testKeypair)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(path, data, 0600))
+				return path
+			},
+			wantErr: false,
+			wantLen: 64,
+		},
+		{
+			name: "Base58 format",
+			setup: func(t *testing.T, tmpDir string) string {
+				path := filepath.Join(tmpDir, "keypair.txt")
+				encoded := base58.Encode(testKeypair)
+				require.NoError(t, os.WriteFile(path, []byte(encoded), 0600))
+				return path
+			},
+			wantErr: false,
+			wantLen: 64,
+		},
+		{
+			name: "invalid length (32 bytes instead of 64)",
+			setup: func(t *testing.T, tmpDir string) string {
+				path := filepath.Join(tmpDir, "bad-keypair.json")
+				badKey := make([]byte, 32)
+				data, err := json.Marshal(badKey)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(path, data, 0600))
+				return path
+			},
+			wantErr:     true,
+			errContains: "invalid keypair length",
+		},
+		{
+			name: "invalid format (garbage data)",
+			setup: func(t *testing.T, tmpDir string) string {
+				path := filepath.Join(tmpDir, "bad-keypair.txt")
+				require.NoError(t, os.WriteFile(path, []byte("not-valid-data!@#$"), 0600))
+				return path
+			},
+			wantErr: true,
+		},
+		{
+			name: "file not found",
+			setup: func(t *testing.T, tmpDir string) string {
+				return "/nonexistent/path/keypair.json"
+			},
+			wantErr: true,
+		},
+	}
 
-	err = os.WriteFile(keypairPath, jsonData, 0600)
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			path := tt.setup(t, tmpDir)
 
-	// Load keypair
-	key, err := LoadSolanaKeypair(keypairPath)
-	require.NoError(t, err)
-	require.NotNil(t, key)
+			key, err := LoadSolanaKeypair(path)
 
-	// Verify length
-	assert.Len(t, key, 64)
-}
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
 
-func TestLoadSolanaKeypair_Base58(t *testing.T) {
-	// Create temp file with base58 format
-	tmpDir := t.TempDir()
-	keypairPath := filepath.Join(tmpDir, "test-keypair.txt")
-
-	base58Key := base58.Encode(testSolanaKeypair)
-	err := os.WriteFile(keypairPath, []byte(base58Key), 0600)
-	require.NoError(t, err)
-
-	// Load keypair
-	key, err := LoadSolanaKeypair(keypairPath)
-	require.NoError(t, err)
-	require.NotNil(t, key)
-
-	// Verify length
-	assert.Len(t, key, 64)
-}
-
-func TestLoadSolanaKeypair_InvalidLength(t *testing.T) {
-	// Create temp file with wrong length
-	tmpDir := t.TempDir()
-	keypairPath := filepath.Join(tmpDir, "bad-keypair.json")
-
-	badKey := make([]byte, 32) // Should be 64
-	jsonData, err := json.Marshal(badKey)
-	require.NoError(t, err)
-
-	err = os.WriteFile(keypairPath, jsonData, 0600)
-	require.NoError(t, err)
-
-	// Load should fail
-	_, err = LoadSolanaKeypair(keypairPath)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid keypair length")
-}
-
-func TestLoadSolanaKeypair_InvalidFormat(t *testing.T) {
-	// Create temp file with invalid format
-	tmpDir := t.TempDir()
-	keypairPath := filepath.Join(tmpDir, "bad-keypair.txt")
-
-	err := os.WriteFile(keypairPath, []byte("not-valid-data!@#$"), 0600)
-	require.NoError(t, err)
-
-	// Load should fail
-	_, err = LoadSolanaKeypair(keypairPath)
-	assert.Error(t, err)
-}
-
-func TestLoadSolanaKeypair_FileNotFound(t *testing.T) {
-	_, err := LoadSolanaKeypair("/nonexistent/path/keypair.json")
-	assert.Error(t, err)
+			require.NoError(t, err)
+			require.NotNil(t, key)
+			assert.Len(t, key, tt.wantLen)
+		})
+	}
 }
 
 func TestLoadSolanaKeypairFromBase58(t *testing.T) {
-	base58Key := base58.Encode(testSolanaKeypair)
+	testKeypair := testSolanaKeypairBytes(t)
 
-	key, err := LoadSolanaKeypairFromBase58(base58Key)
-	require.NoError(t, err)
-	assert.Len(t, key, 64)
-}
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		wantLen int
+	}{
+		{
+			name:    "valid base58",
+			input:   base58.Encode(testKeypair),
+			wantErr: false,
+			wantLen: 64,
+		},
+		{
+			name:    "valid base58 with whitespace",
+			input:   "  " + base58.Encode(testKeypair) + "\n",
+			wantErr: false,
+			wantLen: 64,
+		},
+	}
 
-func TestLoadSolanaKeypairFromBase58_WithWhitespace(t *testing.T) {
-	base58Key := "  " + base58.Encode(testSolanaKeypair) + "\n"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, err := LoadSolanaKeypairFromBase58(tt.input)
 
-	key, err := LoadSolanaKeypairFromBase58(base58Key)
-	require.NoError(t, err)
-	assert.Len(t, key, 64)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, key, tt.wantLen)
+		})
+	}
 }
 
 func TestGetSolanaAddress(t *testing.T) {
-	key, err := LoadSolanaKeypairFromBase58(base58.Encode(testSolanaKeypair))
+	testKeypair := testSolanaKeypairBytes(t)
+	key, err := LoadSolanaKeypairFromBase58(base58.Encode(testKeypair))
 	require.NoError(t, err)
 
 	address := GetSolanaAddress(key)

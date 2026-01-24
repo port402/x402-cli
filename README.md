@@ -85,7 +85,7 @@ x402 test https://api.example.com/resource --keystore ~/.foundry/keystores/my-wa
 
 ### Health Check (EVM + Solana)
 
-```
+```text
 $ x402 health https://jupiter.api.corbits.dev/ultra/v1/order
 
 ✓ https://jupiter.api.corbits.dev/ultra/v1/order
@@ -107,7 +107,7 @@ $ x402 health https://jupiter.api.corbits.dev/ultra/v1/order
 
 ### Health Check with Agent Discovery
 
-```
+```text
 $ x402 health https://api.example.com/endpoint --agent
 
 ✓ https://api.example.com/endpoint
@@ -140,7 +140,7 @@ $ x402 health https://api.example.com/endpoint --agent
 
 ### Dry Run
 
-```
+```text
 $ x402 test https://x402-dotnet.azurewebsites.net/resource/middleware \
     --keystore ~/.foundry/keystores/test --dry-run
 
@@ -157,7 +157,7 @@ Payment Requirements:
 
 ### Successful Payment
 
-```
+```text
 $ x402 test https://x402-dotnet.azurewebsites.net/resource/middleware \
     --keystore ~/.foundry/keystores/test
 
@@ -188,7 +188,7 @@ Response (200 OK):
 
 ### Agent Discovery (Found)
 
-```
+```text
 $ x402 agent https://api.example.com
 
 ✓ Agent card found (/.well-known/agent.json)
@@ -207,7 +207,7 @@ Docs: https://docs.example.com/agent
 
 ### Agent Discovery (Not Found)
 
-```
+```text
 $ x402 agent https://example.com
 
 ⚠ No agent card found

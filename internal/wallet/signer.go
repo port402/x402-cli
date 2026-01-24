@@ -41,9 +41,17 @@ type SignParams struct {
 
 // SignResult contains the signature and authorization details.
 type SignResult struct {
-	Signature     string             // Hex-encoded signature with 0x prefix
+	// Signature is the signed authorization.
+	// Format varies by chain:
+	//   - EVM: Hex-encoded signature with 0x prefix
+	//   - Solana: Base64-encoded partially-signed transaction
+	Signature     string
 	Authorization x402.Authorization // Authorization struct for payload
-	Nonce         string             // Hex-encoded nonce with 0x prefix
+	// Nonce is the transaction nonce.
+	// Format varies by chain:
+	//   - EVM: Hex-encoded nonce with 0x prefix
+	//   - Solana: Base58-encoded recent blockhash
+	Nonce string
 }
 
 // PrepareSignParams builds SignParams from payment requirement and signer address.

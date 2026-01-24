@@ -166,7 +166,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	paymentOption, isSolana, err := selectPaymentOption(solanaOption, evmOption, solanaKeypairPath != "")
 	if err != nil {
-		return err
+		return fmt.Errorf("select payment option: %w", err)
 	}
 
 	// Get chain ID for EVM or network name for Solana
@@ -262,7 +262,10 @@ func runTest(cmd *cobra.Command, args []string) error {
 		}
 
 		fromAddress = wallet.GetSolanaAddress(solanaKey)
-		rpcURL := x402.GetSolanaRPCURL(paymentOption.Network)
+		rpcURL, err := x402.GetSolanaRPCURL(paymentOption.Network)
+		if err != nil {
+			return fmt.Errorf("failed to get Solana RPC URL: %w", err)
+		}
 		signer = wallet.NewSolanaSigner(solanaKey, rpcURL)
 	} else {
 		// Load EVM wallet

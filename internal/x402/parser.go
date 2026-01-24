@@ -218,8 +218,8 @@ func IsSolanaNetwork(network string) bool {
 	if strings.HasPrefix(network, caip2SolanaPrefix) && len(network) > len(caip2SolanaPrefix) {
 		return true
 	}
-	// Check known aliases
-	_, ok := solanaNetworkAliases[network]
+	// Check known aliases (case-insensitive)
+	_, ok := solanaNetworkAliases[strings.ToLower(network)]
 	return ok
 }
 
@@ -241,8 +241,8 @@ func NormalizeSolanaNetwork(network string) string {
 	if strings.HasPrefix(network, caip2SolanaPrefix) {
 		return network
 	}
-	// Check aliases
-	if caip2, ok := solanaNetworkAliases[network]; ok {
+	// Check aliases (case-insensitive)
+	if caip2, ok := solanaNetworkAliases[strings.ToLower(network)]; ok {
 		return caip2
 	}
 	return network
@@ -250,19 +250,19 @@ func NormalizeSolanaNetwork(network string) string {
 
 // GetSolanaRPCURL returns the appropriate RPC URL for a Solana network.
 // Supports both CAIP-2 format and common network names.
-func GetSolanaRPCURL(network string) string {
+// Returns an error if the network is not recognized.
+func GetSolanaRPCURL(network string) (string, error) {
 	// Normalize to CAIP-2 format first
 	normalized := NormalizeSolanaNetwork(network)
 
 	switch normalized {
 	case SolanaMainnet:
-		return "https://api.mainnet-beta.solana.com"
+		return "https://api.mainnet-beta.solana.com", nil
 	case SolanaDevnet:
-		return "https://api.devnet.solana.com"
+		return "https://api.devnet.solana.com", nil
 	case SolanaTestnet:
-		return "https://api.testnet.solana.com"
+		return "https://api.testnet.solana.com", nil
 	default:
-		// Default to mainnet for unknown networks
-		return "https://api.mainnet-beta.solana.com"
+		return "", fmt.Errorf("unknown Solana network: %s", network)
 	}
 }

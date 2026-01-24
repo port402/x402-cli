@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -206,8 +207,15 @@ func (s *SolanaSigner) getTokenDecimals(ctx context.Context, mintPubkey solana.P
 func (s *SolanaSigner) accountExists(ctx context.Context, pubkey solana.PublicKey) (bool, error) {
 	accountInfo, err := s.rpcClient.GetAccountInfo(ctx, pubkey)
 	if err != nil {
-		// RPC returns error for non-existent accounts
-		return false, nil //nolint:nilerr // Non-existent account is not an error for our purpose
+		// Solana RPC may return specific error messages for non-existent accounts
+		errStr := err.Error()
+		if strings.Contains(errStr, "not found") ||
+			strings.Contains(errStr, "could not find account") ||
+			strings.Contains(errStr, "AccountNotFound") {
+			return false, nil
+		}
+		// Propagate other errors (network issues, rate limits, etc.)
+		return false, fmt.Errorf("failed to check account: %w", err)
 	}
 
 	return accountInfo != nil && accountInfo.Value != nil, nil
