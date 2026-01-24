@@ -23,6 +23,7 @@ import (
 var (
 	keystorePath            string
 	walletKey               string
+	solanaKeypairPath       string
 	requestData             string
 	requestMethod           string
 	requestHeaders          []string
@@ -39,18 +40,21 @@ var testCmd = &cobra.Command{
 
 This command:
   1. Makes an initial request to get payment requirements
-  2. Signs an EIP-3009 authorization (gasless)
+  2. Signs the payment authorization (EIP-3009 for EVM, transaction for Solana)
   3. Retries with the payment signature
   4. Displays the result with transaction link
 
-Requires a wallet (keystore file, hex key, or environment variable).
+Supports both EVM (Ethereum, Base, etc.) and Solana payments.
 
 Examples:
-  # Using keystore file
+  # EVM: Using keystore file
   x402 test https://api.example.com/endpoint --keystore ~/.foundry/keystores/my-wallet
 
-  # Using hex private key
+  # EVM: Using hex private key
   x402 test https://api.example.com/endpoint --wallet 0x...
+
+  # Solana: Using keypair file
+  x402 test https://api.example.com/endpoint --solana-keypair ~/.config/solana/id.json
 
   # Dry run (show payment details without paying)
   x402 test https://api.example.com/endpoint --keystore ~/.foundry/keystores/my-wallet --dry-run
@@ -65,8 +69,9 @@ Examples:
 }
 
 func init() {
-	testCmd.Flags().StringVar(&keystorePath, "keystore", "", "Path to keystore file")
-	testCmd.Flags().StringVar(&walletKey, "wallet", "", "Hex private key (or use PRIVATE_KEY env)")
+	testCmd.Flags().StringVar(&keystorePath, "keystore", "", "Path to EVM keystore file")
+	testCmd.Flags().StringVar(&walletKey, "wallet", "", "EVM hex private key (or use PRIVATE_KEY env)")
+	testCmd.Flags().StringVar(&solanaKeypairPath, "solana-keypair", "", "Path to Solana keypair file")
 	testCmd.Flags().StringVarP(&requestData, "data", "d", "", "Request body data")
 	testCmd.Flags().StringVarP(&requestMethod, "method", "X", "GET", "HTTP method")
 	testCmd.Flags().StringArrayVarP(&requestHeaders, "header", "H", nil, "Custom headers (repeatable)")
@@ -155,42 +160,46 @@ func runTest(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse payment requirements: %w", err)
 	}
 
-	// Find EVM option
+	// Find payment option based on provided credentials
+	solanaOption := x402.FindSolanaOption(parseResult.PaymentRequired)
 	evmOption := x402.FindEVMOption(parseResult.PaymentRequired)
-	if evmOption == nil {
-		if x402.HasOnlySolanaOptions(parseResult.PaymentRequired) {
-			return fmt.Errorf("endpoint only accepts Solana payments (not yet supported)")
-		}
-		return fmt.Errorf("no supported payment options found")
+
+	paymentOption, isSolana, err := selectPaymentOption(solanaOption, evmOption, solanaKeypairPath != "")
+	if err != nil {
+		return fmt.Errorf("select payment option: %w", err)
 	}
 
-	// Get chain ID
-	chainID, err := x402.ExtractChainID(evmOption.Network)
-	if err != nil {
-		return fmt.Errorf("invalid network: %w", err)
+	// Get chain ID for EVM or network name for Solana
+	var chainID int64
+	if !isSolana {
+		var err error
+		chainID, err = x402.ExtractChainID(paymentOption.Network)
+		if err != nil {
+			return fmt.Errorf("invalid network: %w", err)
+		}
 	}
 
 	// Format payment info
 	var amountHuman string
 	var tokenKnown bool
-	if tokenInfo := tokens.GetTokenInfo(evmOption.Network, evmOption.Asset); tokenInfo != nil {
-		amountHuman = tokens.FormatAmount(evmOption.GetAmount(), tokenInfo.Decimals, tokenInfo.Symbol)
+	if tokenInfo := tokens.GetTokenInfo(paymentOption.Network, paymentOption.Asset); tokenInfo != nil {
+		amountHuman = tokens.FormatAmount(paymentOption.GetAmount(), tokenInfo.Decimals, tokenInfo.Symbol)
 		tokenKnown = true
 	} else {
-		amountHuman = fmt.Sprintf("%s raw units (unknown token)", evmOption.GetAmount())
+		amountHuman = fmt.Sprintf("%s raw units (unknown token)", paymentOption.GetAmount())
 		tokenKnown = false
 	}
 
-	networkName := tokens.GetNetworkName(evmOption.Network)
+	networkName := tokens.GetNetworkName(paymentOption.Network)
 
 	// Check max-amount
 	if maxAmount != "" && tokenKnown {
-		tokenInfo := tokens.GetTokenInfo(evmOption.Network, evmOption.Asset)
+		tokenInfo := tokens.GetTokenInfo(paymentOption.Network, paymentOption.Asset)
 		maxRaw, err := tokens.ParseHumanAmount(maxAmount, tokenInfo.Decimals)
 		if err != nil {
 			return fmt.Errorf("invalid --max-amount: %w", err)
 		}
-		if tokens.CompareAmounts(evmOption.GetAmount(), maxRaw) > 0 {
+		if tokens.CompareAmounts(paymentOption.GetAmount(), maxRaw) > 0 {
 			return fmt.Errorf("payment amount %s exceeds maximum %s %s", amountHuman, maxAmount, tokenInfo.Symbol)
 		}
 	}
@@ -203,13 +212,13 @@ func runTest(cmd *cobra.Command, args []string) error {
 		Protocol:   fmt.Sprintf("v%d", parseResult.ProtocolVersion),
 		PaymentOption: output.PaymentOptionDisplay{
 			Index:       1,
-			Scheme:      evmOption.Scheme,
-			Network:     evmOption.Network,
+			Scheme:      paymentOption.Scheme,
+			Network:     paymentOption.Network,
 			NetworkName: networkName,
-			Amount:      evmOption.GetAmount(),
+			Amount:      paymentOption.GetAmount(),
 			AmountHuman: amountHuman,
-			Asset:       evmOption.Asset,
-			PayTo:       evmOption.PayTo,
+			Asset:       paymentOption.Asset,
+			PayTo:       paymentOption.PayTo,
 			Supported:   true,
 		},
 		DryRun:   dryRun,
@@ -219,7 +228,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 	// Show payment details
 	if !GetJSONOutput() {
 		fmt.Println()
-		fmt.Printf("  Payment:  %s → %s\n", amountHuman, tokens.FormatShortAddress(evmOption.PayTo))
+		fmt.Printf("  Payment:  %s → %s\n", amountHuman, tokens.FormatShortAddress(paymentOption.PayTo))
 		fmt.Printf("  Network:  %s\n", networkName)
 		if !tokenKnown {
 			fmt.Println()
@@ -237,17 +246,41 @@ func runTest(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Load wallet
-	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "• Loading wallet...")
-	}
+	// Load wallet and create signer
+	var fromAddress string
+	var signer wallet.Signer
 
-	privateKeyLoaded, err := wallet.LoadPrivateKey(keystorePath, walletKey, !output.IsStdinTTY())
-	if err != nil {
-		return fmt.Errorf("failed to load wallet: %w", err)
-	}
+	if isSolana {
+		// Load Solana keypair
+		if GetVerbose() && !GetJSONOutput() {
+			fmt.Fprintln(os.Stderr, "• Loading Solana keypair...")
+		}
 
-	fromAddress := wallet.GetAddress(privateKeyLoaded)
+		solanaKey, err := wallet.LoadSolanaKeypair(solanaKeypairPath)
+		if err != nil {
+			return fmt.Errorf("failed to load Solana keypair: %w", err)
+		}
+
+		fromAddress = wallet.GetSolanaAddress(solanaKey)
+		rpcURL, err := x402.GetSolanaRPCURL(paymentOption.Network)
+		if err != nil {
+			return fmt.Errorf("failed to get Solana RPC URL: %w", err)
+		}
+		signer = wallet.NewSolanaSigner(solanaKey, rpcURL)
+	} else {
+		// Load EVM wallet
+		if GetVerbose() && !GetJSONOutput() {
+			fmt.Fprintln(os.Stderr, "• Loading wallet...")
+		}
+
+		privateKeyLoaded, err := wallet.LoadPrivateKey(keystorePath, walletKey, !output.IsStdinTTY())
+		if err != nil {
+			return fmt.Errorf("failed to load wallet: %w", err)
+		}
+
+		fromAddress = wallet.GetAddress(privateKeyLoaded)
+		signer = wallet.NewEVMSigner(privateKeyLoaded)
+	}
 
 	if GetVerbose() && !GetJSONOutput() {
 		fmt.Fprintf(os.Stderr, "  Wallet: %s\n", fromAddress)
@@ -264,11 +297,22 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Step 4: Sign authorization
 	if GetVerbose() && !GetJSONOutput() {
-		fmt.Fprintln(os.Stderr, "• Signing EIP-3009 authorization...")
+		if isSolana {
+			fmt.Fprintln(os.Stderr, "• Building Solana transaction...")
+		} else {
+			fmt.Fprintln(os.Stderr, "• Signing EIP-3009 authorization...")
+		}
 	}
 
-	signParams := wallet.PrepareSignParams(evmOption, fromAddress, chainID)
-	signResult, err := wallet.SignTransferAuthorization(privateKeyLoaded, signParams)
+	// Prepare sign params based on chain type
+	var signParams wallet.SignParams
+	if isSolana {
+		signParams = wallet.PrepareSolanaSignParams(paymentOption, fromAddress)
+	} else {
+		signParams = wallet.PrepareSignParams(paymentOption, fromAddress, chainID)
+	}
+
+	signResult, err := signer.Sign(signParams)
 	if err != nil {
 		return fmt.Errorf("failed to sign authorization: %w", err)
 	}
@@ -286,15 +330,27 @@ func runTest(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	headerName, headerValue, err := x402.BuildAndEncodePayload(
-		parseResult.ProtocolVersion,
-		resource,
-		evmOption,
-		signResult.Signature,
-		signResult.Authorization,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to build payment payload: %w", err)
+	var headerName, headerValue string
+	if isSolana {
+		// Solana uses the transaction as the payload
+		payload := x402.BuildPayloadV2Solana(resource, paymentOption, signResult.Signature)
+		headerValue, err = x402.EncodePayload(payload)
+		if err != nil {
+			return fmt.Errorf("failed to encode Solana payload: %w", err)
+		}
+		headerName = x402.HeaderPaymentSignature
+	} else {
+		// EVM uses signature and authorization
+		headerName, headerValue, err = x402.BuildAndEncodePayload(
+			parseResult.ProtocolVersion,
+			resource,
+			paymentOption,
+			signResult.Signature,
+			signResult.Authorization,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to build payment payload: %w", err)
+		}
 	}
 
 	// Step 6: Retry with payment
@@ -326,7 +382,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 		result.PaymentResponse = paymentResp
 		if paymentResp.Transaction != "" {
 			result.Transaction = paymentResp.Transaction
-			result.TransactionURL = tokens.GetExplorerURL(evmOption.Network, paymentResp.Transaction)
+			result.TransactionURL = tokens.GetExplorerURL(paymentOption.Network, paymentResp.Transaction)
 		}
 	}
 
@@ -363,4 +419,27 @@ func runTest(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// selectPaymentOption chooses the appropriate payment option based on available options
+// and whether the user provided a Solana keypair.
+func selectPaymentOption(solanaOpt, evmOpt *x402.PaymentRequirement, hasSolanaKeypair bool) (*x402.PaymentRequirement, bool, error) {
+	if hasSolanaKeypair {
+		if solanaOpt != nil {
+			return solanaOpt, true, nil
+		}
+		if evmOpt != nil {
+			return nil, false, fmt.Errorf("endpoint does not accept Solana payments, but --solana-keypair was provided")
+		}
+		return nil, false, fmt.Errorf("no supported payment options found")
+	}
+
+	// Default to EVM
+	if evmOpt != nil {
+		return evmOpt, false, nil
+	}
+	if solanaOpt != nil {
+		return nil, false, fmt.Errorf("endpoint only accepts Solana payments (use --solana-keypair)")
+	}
+	return nil, false, fmt.Errorf("no supported payment options found")
 }

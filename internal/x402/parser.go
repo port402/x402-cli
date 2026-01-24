@@ -12,6 +12,35 @@ import (
 // caip2EVMPrefix is the prefix for EVM chains in CAIP-2 format.
 const caip2EVMPrefix = "eip155:"
 
+// caip2SolanaPrefix is the prefix for Solana chains in CAIP-2 format.
+const caip2SolanaPrefix = "solana:"
+
+// Solana network identifiers (CAIP-2 format uses genesis hash)
+const (
+	// SolanaMainnet is the CAIP-2 identifier for Solana mainnet-beta
+	SolanaMainnet = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+	// SolanaDevnet is the CAIP-2 identifier for Solana devnet
+	SolanaDevnet = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+	// SolanaTestnet is the CAIP-2 identifier for Solana testnet
+	SolanaTestnet = "solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z"
+)
+
+// solanaNetworkAliases maps common Solana network names to their CAIP-2 identifiers.
+// This handles v1 protocol which may use simple names instead of CAIP-2 format.
+var solanaNetworkAliases = map[string]string{
+	// Mainnet aliases
+	"solana":              SolanaMainnet,
+	"solana-mainnet":      SolanaMainnet,
+	"solana-mainnet-beta": SolanaMainnet,
+	"mainnet-beta":        SolanaMainnet,
+	// Devnet aliases
+	"solana-devnet": SolanaDevnet,
+	"devnet":        SolanaDevnet,
+	// Testnet aliases
+	"solana-testnet": SolanaTestnet,
+	"testnet":        SolanaTestnet,
+}
+
 // ParseResult contains the parsed payment requirements and metadata.
 type ParseResult struct {
 	PaymentRequired *PaymentRequired
@@ -180,4 +209,60 @@ func HasOnlySolanaOptions(pr *PaymentRequired) bool {
 	}
 	// Check if any options exist and none are EVM
 	return len(pr.Accepts) > 0
+}
+
+// IsSolanaNetwork checks if the network is a Solana chain.
+// Supports both CAIP-2 format (solana:*) and common network names.
+func IsSolanaNetwork(network string) bool {
+	// Check CAIP-2 format (must have content after prefix)
+	if strings.HasPrefix(network, caip2SolanaPrefix) && len(network) > len(caip2SolanaPrefix) {
+		return true
+	}
+	// Check known aliases (case-insensitive)
+	_, ok := solanaNetworkAliases[strings.ToLower(network)]
+	return ok
+}
+
+// FindSolanaOption returns the first Solana payment option.
+// Returns nil if no Solana options are available.
+func FindSolanaOption(pr *PaymentRequired) *PaymentRequirement {
+	for i := range pr.Accepts {
+		if IsSolanaNetwork(pr.Accepts[i].Network) {
+			return &pr.Accepts[i]
+		}
+	}
+	return nil
+}
+
+// NormalizeSolanaNetwork converts a Solana network name to its CAIP-2 identifier.
+// Returns the original string if already in CAIP-2 format or unknown.
+func NormalizeSolanaNetwork(network string) string {
+	// Already in CAIP-2 format
+	if strings.HasPrefix(network, caip2SolanaPrefix) {
+		return network
+	}
+	// Check aliases (case-insensitive)
+	if caip2, ok := solanaNetworkAliases[strings.ToLower(network)]; ok {
+		return caip2
+	}
+	return network
+}
+
+// GetSolanaRPCURL returns the appropriate RPC URL for a Solana network.
+// Supports both CAIP-2 format and common network names.
+// Returns an error if the network is not recognized.
+func GetSolanaRPCURL(network string) (string, error) {
+	// Normalize to CAIP-2 format first
+	normalized := NormalizeSolanaNetwork(network)
+
+	switch normalized {
+	case SolanaMainnet:
+		return "https://api.mainnet-beta.solana.com", nil
+	case SolanaDevnet:
+		return "https://api.devnet.solana.com", nil
+	case SolanaTestnet:
+		return "https://api.testnet.solana.com", nil
+	default:
+		return "", fmt.Errorf("unknown Solana network: %s", network)
+	}
 }

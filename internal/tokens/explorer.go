@@ -1,11 +1,14 @@
 package tokens
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // explorerURLs maps network identifiers to block explorer base URLs.
 // Supports both CAIP-2 format (eip155:*) and simple network names.
 var explorerURLs = map[string]string{
-	// CAIP-2 format
+	// CAIP-2 format - EVM
 	"eip155:1":        "https://etherscan.io",
 	"eip155:8453":     "https://basescan.org",
 	"eip155:84532":    "https://sepolia.basescan.org",
@@ -25,6 +28,11 @@ var explorerURLs = map[string]string{
 	"polygon":      "https://polygonscan.com",
 	"arbitrum":     "https://arbiscan.io",
 	"optimism":     "https://optimistic.etherscan.io",
+
+	// Solana networks (CAIP-2 format)
+	"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp": "https://solscan.io",
+	"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": "https://solscan.io?cluster=devnet",
+	"solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z": "https://solscan.io?cluster=testnet",
 }
 
 // GetExplorerURL returns the block explorer URL for a transaction.
@@ -34,7 +42,26 @@ func GetExplorerURL(network, txHash string) string {
 	if !ok {
 		return ""
 	}
-	return fmt.Sprintf("%s/tx/%s", baseURL, txHash)
+	return buildExplorerURL(network, baseURL, "tx", txHash)
+}
+
+// buildExplorerURL constructs an explorer URL, handling Solana's query param format.
+// Solscan uses /tx/<sig>?cluster=devnet and /account/<addr>?cluster=devnet
+func buildExplorerURL(network, baseURL, pathType, value string) string {
+	if strings.HasPrefix(network, "solana:") {
+		// Solana uses /account/ not /address/
+		if pathType == "address" {
+			pathType = "account"
+		}
+		// Split base URL into host and query string
+		if idx := strings.Index(baseURL, "?"); idx != -1 {
+			host := baseURL[:idx]
+			query := baseURL[idx:]
+			return fmt.Sprintf("%s/%s/%s%s", host, pathType, value, query)
+		}
+		return fmt.Sprintf("%s/%s/%s", baseURL, pathType, value)
+	}
+	return fmt.Sprintf("%s/%s/%s", baseURL, pathType, value)
 }
 
 // GetAddressExplorerURL returns the block explorer URL for an address.
@@ -43,7 +70,7 @@ func GetAddressExplorerURL(network, address string) string {
 	if !ok {
 		return ""
 	}
-	return fmt.Sprintf("%s/address/%s", baseURL, address)
+	return buildExplorerURL(network, baseURL, "address", address)
 }
 
 // GetTokenExplorerURL returns the block explorer URL for a token contract.
@@ -52,7 +79,7 @@ func GetTokenExplorerURL(network, tokenAddress string) string {
 	if !ok {
 		return ""
 	}
-	return fmt.Sprintf("%s/token/%s", baseURL, tokenAddress)
+	return buildExplorerURL(network, baseURL, "token", tokenAddress)
 }
 
 // HasExplorer returns true if we have a block explorer URL for the network.

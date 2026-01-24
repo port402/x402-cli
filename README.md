@@ -4,15 +4,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/port402/x402-cli?v=1)](https://goreportcard.com/report/github.com/port402/x402-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Test x402 payment-gated APIs from your terminal. No ETH needed for gas.
+> Test x402 payment-gated APIs from your terminal. No ETH or SOL needed for gas.
 
 ## Features
 
 - **Health Check** — Validate x402 endpoints without a wallet
 - **Agent Discovery** — Discover A2A protocol agent cards
-- **Test Payments** — Execute gasless EIP-3009 payments
+- **Multi-Chain Payments** — Execute gasless EIP-3009 (EVM) and SPL token transfers (Solana)
 - **Batch Testing** — Check multiple endpoints in parallel
-- **Keystore Support** — Works with Foundry/Geth keystores
+- **Keystore Support** — Works with Foundry/Geth keystores and Solana keypairs
 - **CI/CD Ready** — JSON output and exit codes for automation
 - **Dry Run Mode** — Preview payments before executing
 
@@ -63,10 +63,16 @@ x402 health https://api.example.com/resource --agent   # Also check for agent ca
 x402 agent https://api.example.com
 ```
 
-### Make a test payment
+### Make a test payment (EVM)
 
 ```bash
 x402 test https://api.example.com/resource --keystore ~/.foundry/keystores/my-wallet
+```
+
+### Make a test payment (Solana)
+
+```bash
+x402 test https://api.example.com/resource --solana-keypair ~/.config/solana/id.json
 ```
 
 ### Preview payment without executing
@@ -77,30 +83,31 @@ x402 test https://api.example.com/resource --keystore ~/.foundry/keystores/my-wa
 
 ## Sample Output
 
-### Health Check
+### Health Check (EVM + Solana)
 
-```
-$ x402 health https://x402-dotnet.azurewebsites.net/resource/middleware
+```text
+$ x402 health https://jupiter.api.corbits.dev/ultra/v1/order
 
-✓ https://x402-dotnet.azurewebsites.net/resource/middleware
+✓ https://jupiter.api.corbits.dev/ultra/v1/order
 
   Status:   402 Payment Required
-  Protocol: v2 (current)
-  Latency:  150ms
-  Payment:  0.001 USDC on Base Sepolia
+  Protocol: v1 (legacy)
+  Latency:  260ms
+  Payment:  0.01 USDC on Solana Mainnet
 
   Checks:
     ✓ Endpoint reachable
     ✓ Returns 402
-    ✓ Valid payment header
+    ✓ Valid payment body
     ✓ Has payment options
     ✓ Has EVM option
+    ✓ Has Solana option
     ✓ Known token
 ```
 
 ### Health Check with Agent Discovery
 
-```
+```text
 $ x402 health https://api.example.com/endpoint --agent
 
 ✓ https://api.example.com/endpoint
@@ -133,7 +140,7 @@ $ x402 health https://api.example.com/endpoint --agent
 
 ### Dry Run
 
-```
+```text
 $ x402 test https://x402-dotnet.azurewebsites.net/resource/middleware \
     --keystore ~/.foundry/keystores/test --dry-run
 
@@ -150,7 +157,7 @@ Payment Requirements:
 
 ### Successful Payment
 
-```
+```text
 $ x402 test https://x402-dotnet.azurewebsites.net/resource/middleware \
     --keystore ~/.foundry/keystores/test
 
@@ -181,7 +188,7 @@ Response (200 OK):
 
 ### Agent Discovery (Found)
 
-```
+```text
 $ x402 agent https://api.example.com
 
 ✓ Agent card found (/.well-known/agent.json)
@@ -200,7 +207,7 @@ Docs: https://docs.example.com/agent
 
 ### Agent Discovery (Not Found)
 
-```
+```text
 $ x402 agent https://example.com
 
 ⚠ No agent card found
@@ -257,15 +264,20 @@ x402 agent https://api.example.com --card-url /custom/agent.json  # Custom path
 Make a test payment to an x402 endpoint.
 
 ```bash
+# EVM payments (Base, Ethereum, etc.)
 x402 test <url> --keystore <path>                    # Interactive mode
 x402 test <url> --keystore <path> --dry-run          # Preview only
 x402 test <url> --keystore <path> --max-amount 0.05  # Safety cap
+
+# Solana payments
+x402 test <url> --solana-keypair ~/.config/solana/id.json
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--keystore` | Path to Web3 keystore file |
-| `--wallet` | Hex-encoded private key (or `PRIVATE_KEY` env) |
+| `--keystore` | Path to EVM Web3 keystore file |
+| `--wallet` | Hex-encoded EVM private key (or `PRIVATE_KEY` env) |
+| `--solana-keypair` | Path to Solana keypair file (JSON array or Base58) |
 | `--dry-run` | Show payment details without executing |
 | `--skip-payment-confirmation` | Skip interactive prompt |
 | `--max-amount` | Maximum payment amount (safety cap) |
@@ -273,6 +285,11 @@ x402 test <url> --keystore <path> --max-amount 0.05  # Safety cap
 | `--header` | Custom HTTP header (repeatable) |
 | `--data` | Request body for POST/PUT |
 | `--timeout` | Request timeout in seconds |
+
+**Chain Selection:**
+- If `--solana-keypair` is provided and endpoint supports Solana, Solana is preferred
+- If only EVM wallet is provided, EVM network is used
+- If endpoint supports both and both wallets provided, Solana is preferred
 
 ### `x402 batch-health <file>`
 
@@ -303,14 +320,25 @@ x402 version --json
 
 ## Configuration
 
-### Private Key Sources (priority order)
+### EVM Private Key Sources (priority order)
 
 1. `--keystore ~/.foundry/keystores/my-wallet`
 2. `--wallet 0xac0974...`
 3. `PRIVATE_KEY=0xac0974...` environment variable
 4. Stdin: `echo "0xac0974..." | x402 test ...`
 
+### Solana Keypair Sources
+
+1. `--solana-keypair ~/.config/solana/id.json` (JSON array format)
+2. `--solana-keypair ~/.config/solana/id.json` (Base58 string format)
+
+**Supported keypair formats:**
+- **JSON array:** `[1,2,3,...64 bytes...]` (Solana CLI format)
+- **Base58 string:** Encoded 64-byte keypair
+
 ### Supported Networks
+
+#### EVM Networks
 
 | Network | Chain ID |
 |---------|----------|
@@ -321,9 +349,17 @@ x402 version --json
 | Arbitrum One | eip155:42161 |
 | Optimism | eip155:10 |
 
+#### Solana Networks
+
+| Network | CAIP-2 Identifier |
+|---------|-------------------|
+| Solana Mainnet | solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp |
+| Solana Devnet | solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1 |
+| Solana Testnet | solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z |
+
 ### Supported Tokens
 
-USDC on all supported networks.
+USDC on all supported networks (EVM and Solana).
 
 ### Exit Codes
 
@@ -365,14 +401,25 @@ done
 
 ### Getting Test USDC
 
+#### For EVM (Base Sepolia)
+
 1. Go to [Circle's Faucet](https://faucet.circle.com)
 2. Select **Base Sepolia**
 3. Choose **USDC**
 4. Enter your wallet address
 
+#### For Solana (Devnet)
+
+1. Go to [Circle's Faucet](https://faucet.circle.com)
+2. Select **Solana Devnet**
+3. Choose **USDC**
+4. Enter your Solana wallet address
+
 ## How x402 Works
 
-The x402 protocol enables payment-gated APIs using HTTP 402 responses and gasless EIP-3009 token transfers.
+The x402 protocol enables payment-gated APIs using HTTP 402 responses with gasless token transfers:
+- **EVM chains:** Uses EIP-3009 gasless USDC transfers
+- **Solana:** Uses SPL token transfers with facilitator-paid fees
 
 ```
 ┌─────────┐                    ┌─────────┐                    ┌─────────────┐
@@ -417,15 +464,18 @@ The x402 protocol enables payment-gated APIs using HTTP 402 responses and gasles
 
 - [x402 Protocol](https://github.com/coinbase/x402)
 - [Coinbase x402 Docs](https://docs.cdp.coinbase.com/x402/welcome)
+- [Solana x402 Guide](https://solana.com/developers/guides/getstarted/intro-to-x402)
 - [A2A Protocol](https://a2a-protocol.org) — Agent-to-Agent discovery standard
 - [EIP-3009 Spec](https://eips.ethereum.org/EIPS/eip-3009)
 - [EIP-712 Spec](https://eips.ethereum.org/EIPS/eip-712)
 
 ## Creating a Wallet
 
-The `test` command requires a wallet. We recommend using a **keystore file**.
+The `test` command requires a wallet. Choose based on your target network:
 
-### Using Foundry (Recommended)
+### EVM Wallet (Base, Ethereum, etc.)
+
+#### Using Foundry (Recommended)
 
 ```bash
 # Install Foundry
@@ -439,13 +489,34 @@ cast wallet new ~/.foundry/keystores/
 cast wallet import my-wallet --interactive
 ```
 
-### Using Geth
+#### Using Geth
 
 ```bash
 geth account new --keystore ~/.keystores/
 ```
 
-> **Security:** Never share your keystore or password. Use a dedicated wallet with only test funds.
+### Solana Keypair
+
+#### Using Solana CLI (Recommended)
+
+```bash
+# Install Solana CLI
+sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+
+# Create a new keypair
+solana-keygen new --outfile ~/.config/solana/id.json
+
+# View your address
+solana address
+```
+
+#### Using an existing keypair
+
+The CLI supports two formats:
+- **JSON array:** `[1,2,3,...64 bytes...]` (default Solana CLI format)
+- **Base58 string:** Encoded 64-byte keypair
+
+> **Security:** Never share your keystore, keypair, or password. Use dedicated wallets with only test funds.
 
 ## Development
 
