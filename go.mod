@@ -3,7 +3,7 @@ module github.com/port402/x402-cli
 go 1.24.0
 
 require (
-	github.com/ethereum/go-ethereum v1.16.7
+	github.com/ethereum/go-ethereum v1.16.8
 	github.com/gagliardetto/solana-go v1.14.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/spf13/cobra v1.10.2
