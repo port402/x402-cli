@@ -162,9 +162,10 @@ func printAgentSection(result *a2a.Result) {
 	} else {
 		fmt.Println("  Skills:")
 		for _, skill := range card.Skills {
-			fmt.Printf("    • %s\n", skill.Name)
 			if skill.Description != "" {
-				fmt.Printf("      %s\n", truncateText(skill.Description, 60))
+				fmt.Printf("    • %s — %s\n", skill.Name, skill.Description)
+			} else {
+				fmt.Printf("    • %s\n", skill.Name)
 			}
 		}
 	}
@@ -325,17 +326,6 @@ func countChecks(checks []Check) (failCount, warnCount int) {
 		}
 	}
 	return
-}
-
-// truncateText truncates a string to maxLen characters, adding "..." if truncated.
-func truncateText(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen <= 3 {
-		return "..."
-	}
-	return s[:maxLen-3] + "..."
 }
 
 // errorMessageReplacements maps status codes to clean error messages for payment failures.
