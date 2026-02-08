@@ -12,8 +12,10 @@
 - **Agent Discovery** — Discover A2A protocol agent cards
 - **Multi-Chain Payments** — Execute gasless EIP-3009 (EVM) and SPL token transfers (Solana)
 - **Batch Testing** — Check multiple endpoints in parallel
+- **Network Explorer** — List all supported networks, tokens, and explorers
 - **Keystore Support** — Works with Foundry/Geth keystores and Solana keypairs
-- **CI/CD Ready** — JSON output and exit codes for automation
+- **Shell Completion** — Tab completion for bash, zsh, fish, and PowerShell
+- **CI/CD Ready** — JSON output, exit codes, and `-y` flag for automation
 - **Dry Run Mode** — Preview payments before executing
 
 ## Table of Contents
@@ -53,7 +55,7 @@ Download pre-built binaries from the [releases page](https://github.com/port402/
 ### Check if an endpoint is x402-enabled (no wallet needed)
 
 ```bash
-x402 health https://api.example.com/resource
+x402 health api.example.com/resource                   # https:// auto-prefixed
 x402 health https://api.example.com/resource --agent   # Also check for agent card
 ```
 
@@ -278,8 +280,10 @@ x402 test <url> --solana-keypair ~/.config/solana/id.json
 | `--keystore` | Path to EVM Web3 keystore file |
 | `--wallet` | Hex-encoded EVM private key (or `PRIVATE_KEY` env) |
 | `--solana-keypair` | Path to Solana keypair file (JSON array or Base58) |
+| `--solana-rpc` | Custom Solana RPC endpoint URL |
 | `--dry-run` | Show payment details without executing |
-| `--skip-payment-confirmation` | Skip interactive prompt |
+| `-y`, `--no-confirm` | Skip payment confirmation prompt |
+| `--skip-payment-confirmation` | Skip payment confirmation prompt (alias) |
 | `--max-amount` | Maximum payment amount (safety cap) |
 | `--method` | HTTP method (GET, POST, PUT) |
 | `--header` | Custom HTTP header (repeatable) |
@@ -311,6 +315,32 @@ x402 batch-health urls.json --fail-fast     # Stop on first failure
 [{"url": "https://api.example.com", "method": "POST"}]
 ```
 
+### `x402 networks`
+
+List all supported blockchain networks with their CAIP-2 identifiers, tokens, and explorers.
+
+```bash
+x402 networks            # Table output
+x402 networks --json     # JSON output
+```
+
+### `x402 completion`
+
+Generate shell completion scripts for tab-completion support.
+
+```bash
+x402 completion bash        # Bash
+x402 completion zsh         # Zsh
+x402 completion fish        # Fish
+x402 completion powershell  # PowerShell
+
+# Example: enable for current bash session
+source <(x402 completion bash)
+
+# Example: persist for zsh
+x402 completion zsh > "${fpath[1]}/_x402"
+```
+
 ### `x402 version`
 
 ```bash
@@ -337,6 +367,8 @@ x402 version --json
 - **Base58 string:** Encoded 64-byte keypair
 
 ### Supported Networks
+
+Run `x402 networks` to see all supported networks with their tokens and explorers.
 
 #### EVM Networks
 
@@ -380,11 +412,10 @@ USDC on all supported networks (EVM and Solana).
 # Health check with JSON parsing
 x402 health https://api.example.com/endpoint --json | jq '.exitCode'
 
-# Dry-run in CI
+# Dry-run in CI (use -y to skip confirmation)
 x402 test https://api.example.com/endpoint \
   --keystore ./test-wallet.json \
-  --dry-run \
-  --skip-payment-confirmation
+  --dry-run -y
 ```
 
 ### Batch Testing Script
@@ -394,8 +425,7 @@ x402 test https://api.example.com/endpoint \
 for url in "https://api1.example.com" "https://api2.example.com"; do
   x402 test "$url" \
     --keystore ~/.foundry/keystores/test \
-    --max-amount 0.01 \
-    --skip-payment-confirmation
+    --max-amount 0.01 -y
 done
 ```
 

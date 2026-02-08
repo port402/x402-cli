@@ -87,3 +87,17 @@ func HasExplorer(network string) bool {
 	_, ok := explorerURLs[network]
 	return ok
 }
+
+// GetExplorerHost returns just the explorer hostname for display (e.g., "basescan.org").
+// Returns empty string if the network is not in the registry.
+func GetExplorerHost(network string) string {
+	baseURL, ok := explorerURLs[network]
+	if !ok {
+		return ""
+	}
+	// Strip protocol
+	host := strings.TrimPrefix(baseURL, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	// Keep query params for Solana cluster display (e.g., "solscan.io?cluster=devnet")
+	return host
+}

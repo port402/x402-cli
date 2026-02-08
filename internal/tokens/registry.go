@@ -1,7 +1,10 @@
 // Package tokens provides token metadata, formatting, and block explorer URLs.
 package tokens
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // TokenInfo contains metadata for a known token.
 type TokenInfo struct {
@@ -210,4 +213,60 @@ func IsTestnet(network string) bool {
 		return info.IsTestnet
 	}
 	return false
+}
+
+// NetworkEntry represents a canonical network for listing purposes.
+type NetworkEntry struct {
+	ID        string // CAIP-2 identifier
+	Name      string
+	Chain     string // "evm" or "solana"
+	IsTestnet bool
+	Token     string // primary token symbol, if known
+}
+
+// ListNetworks returns a deduplicated, sorted list of canonical networks.
+// Only includes CAIP-2 format entries (eip155:* and solana:*) to avoid alias duplicates.
+func ListNetworks() []NetworkEntry {
+	var entries []NetworkEntry
+	for id, info := range networkNames {
+		// Only include CAIP-2 canonical entries
+		if !strings.HasPrefix(id, "eip155:") && !strings.HasPrefix(id, "solana:") {
+			continue
+		}
+
+		chain := "evm"
+		if strings.HasPrefix(id, "solana:") {
+			chain = "solana"
+		}
+
+		// Find a token for this network
+		token := ""
+		for key, t := range knownTokens {
+			if strings.HasPrefix(key, id+":") {
+				token = t.Symbol
+				break
+			}
+		}
+
+		entries = append(entries, NetworkEntry{
+			ID:        id,
+			Name:      info.Name,
+			Chain:     chain,
+			IsTestnet: info.IsTestnet,
+			Token:     token,
+		})
+	}
+
+	// Sort: EVM first then Solana, mainnets before testnets, then by name
+	sort.Slice(entries, func(i, j int) bool {
+		a, b := entries[i], entries[j]
+		if a.Chain != b.Chain {
+			return a.Chain == "evm"
+		}
+		if a.IsTestnet != b.IsTestnet {
+			return !a.IsTestnet
+		}
+		return a.Name < b.Name
+	})
+	return entries
 }
