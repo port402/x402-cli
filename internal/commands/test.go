@@ -83,6 +83,7 @@ func init() {
 	testCmd.Flags().BoolVarP(&noConfirm, "no-confirm", "y", false, "Skip payment confirmation prompt")
 	testCmd.Flags().StringVar(&maxAmount, "max-amount", "", "Maximum payment amount (e.g., 0.05)")
 	testCmd.Flags().StringVar(&solanaRPC, "solana-rpc", "", "Custom Solana RPC endpoint URL")
+	testCmd.Flags().MarkHidden("skip-payment-confirmation")
 
 	rootCmd.AddCommand(testCmd)
 }
@@ -90,7 +91,7 @@ func init() {
 func runTest(cmd *cobra.Command, args []string) error {
 	endpoint, err := normalizeURL(args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid URL %q: %w", args[0], err)
 	}
 	timeout := time.Duration(testTimeout) * time.Second
 
@@ -123,8 +124,8 @@ func runTest(cmd *cobra.Command, args []string) error {
 	for _, h := range requestHeaders {
 		if key, value, found := strings.Cut(h, ":"); found {
 			headers[key] = strings.TrimPrefix(value, " ")
-		} else {
-			fmt.Fprintf(os.Stderr, "Warning: ignoring malformed header (missing ':'): %s\n", h)
+		} else if !GetJSONOutput() {
+			output.PrintWarning(fmt.Sprintf("ignoring malformed header (missing ':'): %s", h))
 		}
 	}
 
@@ -275,6 +276,9 @@ func runTest(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to get Solana RPC URL: %w", err)
 		}
 		if solanaRPC != "" {
+			if _, err := normalizeURL(solanaRPC); err != nil {
+				return fmt.Errorf("invalid --solana-rpc URL: %w", err)
+			}
 			rpcURL = solanaRPC
 		}
 		signer = wallet.NewSolanaSigner(solanaKey, rpcURL)

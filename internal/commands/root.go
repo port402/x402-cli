@@ -88,8 +88,11 @@ func normalizeURL(raw string) (string, error) {
 		raw = "https://" + raw
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Host == "" {
-		return "", fmt.Errorf("invalid URL: %s", raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL %q: %w", raw, err)
+	}
+	if parsed.Host == "" {
+		return "", fmt.Errorf("invalid URL %q: missing host", raw)
 	}
 	return raw, nil
 }

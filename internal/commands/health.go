@@ -55,7 +55,7 @@ func init() {
 func runHealth(cmd *cobra.Command, args []string) error {
 	endpoint, err := normalizeURL(args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("normalizing endpoint URL: %w", err)
 	}
 	timeout := time.Duration(healthTimeout) * time.Second
 

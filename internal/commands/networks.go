@@ -59,7 +59,7 @@ func runNetworks(cmd *cobra.Command, args []string) error {
 			tokenStr = "-"
 		}
 
-		fmt.Printf("    %-22s %-40s %-6s %s%s\n", e.Name, e.ID, tokenStr, explorer, testnet)
+		fmt.Printf("    %-22s %-45s %-6s %s%s\n", e.Name, e.ID, tokenStr, explorer, testnet)
 	}
 
 	fmt.Println()

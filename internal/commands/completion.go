@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -39,13 +40,21 @@ PowerShell:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		switch args[0] {
 		case "bash":
-			return cmd.Root().GenBashCompletion(os.Stdout)
+			if err := cmd.Root().GenBashCompletion(os.Stdout); err != nil {
+				return fmt.Errorf("generating bash completion: %w", err)
+			}
 		case "zsh":
-			return cmd.Root().GenZshCompletion(os.Stdout)
+			if err := cmd.Root().GenZshCompletion(os.Stdout); err != nil {
+				return fmt.Errorf("generating zsh completion: %w", err)
+			}
 		case "fish":
-			return cmd.Root().GenFishCompletion(os.Stdout, true)
+			if err := cmd.Root().GenFishCompletion(os.Stdout, true); err != nil {
+				return fmt.Errorf("generating fish completion: %w", err)
+			}
 		case "powershell":
-			return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			if err := cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout); err != nil {
+				return fmt.Errorf("generating powershell completion: %w", err)
+			}
 		}
 		return nil
 	},
