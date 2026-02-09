@@ -24,12 +24,14 @@ var (
 	keystorePath            string
 	walletKey               string
 	solanaKeypairPath       string
+	solanaRPC               string
 	requestData             string
 	requestMethod           string
 	requestHeaders          []string
 	testTimeout             int
 	dryRun                  bool
 	skipPaymentConfirmation bool
+	noConfirm               bool
 	maxAmount               string
 )
 
@@ -78,13 +80,19 @@ func init() {
 	testCmd.Flags().IntVar(&testTimeout, "timeout", 30, "Request timeout in seconds")
 	testCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show payment details without paying")
 	testCmd.Flags().BoolVar(&skipPaymentConfirmation, "skip-payment-confirmation", false, "Skip payment confirmation prompt")
+	testCmd.Flags().BoolVarP(&noConfirm, "no-confirm", "y", false, "Skip payment confirmation prompt")
 	testCmd.Flags().StringVar(&maxAmount, "max-amount", "", "Maximum payment amount (e.g., 0.05)")
+	testCmd.Flags().StringVar(&solanaRPC, "solana-rpc", "", "Custom Solana RPC endpoint URL")
+	testCmd.Flags().MarkHidden("skip-payment-confirmation")
 
 	rootCmd.AddCommand(testCmd)
 }
 
 func runTest(cmd *cobra.Command, args []string) error {
-	url := args[0]
+	endpoint, err := normalizeURL(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid URL %q: %w", args[0], err)
+	}
 	timeout := time.Duration(testTimeout) * time.Second
 
 	// Set up interrupt handler
@@ -116,6 +124,8 @@ func runTest(cmd *cobra.Command, args []string) error {
 	for _, h := range requestHeaders {
 		if key, value, found := strings.Cut(h, ":"); found {
 			headers[key] = strings.TrimPrefix(value, " ")
+		} else if !GetJSONOutput() {
+			output.PrintWarning(fmt.Sprintf("ignoring malformed header (missing ':'): %s", h))
 		}
 	}
 
@@ -124,7 +134,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 		body = []byte(requestData)
 	}
 
-	reqResult, err := httpClient.TimedRequest(requestMethod, url, headers, body)
+	reqResult, err := httpClient.TimedRequest(requestMethod, endpoint, headers, body)
 	if err != nil {
 		return fmt.Errorf("connection failed: %w", err)
 	}
@@ -136,7 +146,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 			bodyBytes, _ := io.ReadAll(reqResult.Response.Body)
 			if GetJSONOutput() {
 				return output.PrintJSON(map[string]interface{}{
-					"url":      url,
+					"url":      endpoint,
 					"status":   200,
 					"message":  "Endpoint does not require payment",
 					"body":     string(bodyBytes),
@@ -169,10 +179,9 @@ func runTest(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("select payment option: %w", err)
 	}
 
-	// Get chain ID for EVM or network name for Solana
+	// Get chain ID for EVM
 	var chainID int64
 	if !isSolana {
-		var err error
 		chainID, err = x402.ExtractChainID(paymentOption.Network)
 		if err != nil {
 			return fmt.Errorf("invalid network: %w", err)
@@ -206,7 +215,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// Build result for display/output
 	result := &output.TestResult{
-		URL:        url,
+		URL:        endpoint,
 		Status:     reqResult.Response.StatusCode,
 		StatusText: reqResult.Response.Status,
 		Protocol:   fmt.Sprintf("v%d", parseResult.ProtocolVersion),
@@ -266,6 +275,12 @@ func runTest(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get Solana RPC URL: %w", err)
 		}
+		if solanaRPC != "" {
+			if _, err := normalizeURL(solanaRPC); err != nil {
+				return fmt.Errorf("invalid --solana-rpc URL: %w", err)
+			}
+			rpcURL = solanaRPC
+		}
 		signer = wallet.NewSolanaSigner(solanaKey, rpcURL)
 	} else {
 		// Load EVM wallet
@@ -286,8 +301,13 @@ func runTest(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "  Wallet: %s\n", fromAddress)
 	}
 
+	// Mainnet warning
+	if !GetJSONOutput() && !tokens.IsTestnet(paymentOption.Network) {
+		output.PrintWarning("This is a MAINNET endpoint — real funds will be used")
+	}
+
 	// Confirmation prompt
-	if !skipPaymentConfirmation && output.IsTTY() {
+	if !(skipPaymentConfirmation || noConfirm) && output.IsTTY() {
 		if !output.PromptConfirm("Proceed with payment?") {
 			fmt.Println("Cancelled by user. No payment was made.")
 			return nil
@@ -326,7 +346,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 	if parseResult.ProtocolVersion == x402.ProtocolV1 {
 		// v1 doesn't have resource in top-level
 		resource = x402.ResourceInfo{
-			URL: url,
+			URL: endpoint,
 		}
 	}
 
@@ -364,7 +384,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 	// Add payment header to existing headers
 	headers[headerName] = headerValue
 
-	retryResult, err := httpClient.TimedRequest(requestMethod, url, headers, body)
+	retryResult, err := httpClient.TimedRequest(requestMethod, endpoint, headers, body)
 	if err != nil {
 		return fmt.Errorf("retry request failed: %w", err)
 	}

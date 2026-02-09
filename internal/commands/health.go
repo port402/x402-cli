@@ -53,15 +53,18 @@ func init() {
 }
 
 func runHealth(cmd *cobra.Command, args []string) error {
-	url := args[0]
+	endpoint, err := normalizeURL(args[0])
+	if err != nil {
+		return fmt.Errorf("normalizing endpoint URL: %w", err)
+	}
 	timeout := time.Duration(healthTimeout) * time.Second
 
-	result := checkHealth(url, timeout, healthMethod)
+	result := checkHealth(endpoint, timeout, healthMethod)
 
 	// Optionally discover agent card
 	var agentResult *a2a.Result
 	if healthAgent {
-		agentResult = a2a.Discover(cmd.Context(), url, "", timeout)
+		agentResult = a2a.Discover(cmd.Context(), endpoint, "", timeout)
 		result.AgentCard = agentResult
 	}
 
@@ -284,14 +287,22 @@ func CheckHealthForBatch(url string, timeout time.Duration) *output.HealthResult
 
 // CheckHealthForBatchWithMethod is exported for use by batch-health command.
 // Allows specifying the HTTP method.
-func CheckHealthForBatchWithMethod(url string, method string, timeout time.Duration) *output.HealthResult {
-	// Normalize URL
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
+func CheckHealthForBatchWithMethod(rawURL string, method string, timeout time.Duration) *output.HealthResult {
+	normalized, err := normalizeURL(rawURL)
+	if err != nil {
+		return &output.HealthResult{
+			URL:      rawURL,
+			ExitCode: 3,
+			Error:    err.Error(),
+			Checks: []output.Check{{
+				Name:    "Endpoint reachable",
+				Status:  output.StatusFail,
+				Message: err.Error(),
+			}},
+		}
 	}
-	// Default to GET if method is empty
 	if method == "" {
 		method = "GET"
 	}
-	return checkHealth(url, timeout, strings.ToUpper(method))
+	return checkHealth(normalized, timeout, strings.ToUpper(method))
 }
