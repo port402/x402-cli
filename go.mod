@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/ethereum/go-ethereum v1.17.2
-	github.com/gagliardetto/solana-go v1.16.0
+	github.com/gagliardetto/solana-go v1.18.0
 	github.com/mr-tron/base58 v1.3.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -12,7 +12,7 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
@@ -40,10 +40,10 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/streamingfast/logging v0.0.0-20250404134358-92b15d2fbd2e // indirect
 	github.com/supranational/blst v0.3.16 // indirect
-	go.mongodb.org/mongo-driver v1.17.3 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.3.1 // indirect
 	go.uber.org/zap v1.27.0 // indirect
