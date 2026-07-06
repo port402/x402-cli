@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/ethereum/go-ethereum v1.17.3
-	github.com/gagliardetto/solana-go v1.20.0
+	github.com/gagliardetto/solana-go v1.22.0
 	github.com/mr-tron/base58 v1.3.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -42,6 +42,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/streamingfast/logging v0.0.0-20250404134358-92b15d2fbd2e // indirect
 	github.com/supranational/blst v0.3.16 // indirect
+	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/ratelimit v0.3.1 // indirect
