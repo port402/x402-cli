@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/ethereum/go-ethereum v1.17.3
-	github.com/gagliardetto/solana-go v1.20.0
+	github.com/gagliardetto/solana-go v1.23.0
 	github.com/mr-tron/base58 v1.3.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
